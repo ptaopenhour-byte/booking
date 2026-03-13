@@ -656,14 +656,19 @@ function toggleBulletin() {
                         this.startCountdown(e, 'close');
                         this.loadSchedule();
                     } else if (now < s) {
+                        this.isOpen = false;
                         this.setStatus('soon');
                         this.setBadge('soon','Opening Soon');
                         this.startCountdown(s, 'open');
                         this.showEmpty("Schedule Opens Soon", `Bookings open on ${formatDateTime(start)}`);
+                        this.revealPage(); // <-- 補上解除載入畫面
                     } else {
+                        // 已經過了結束時間，確保狀態為關閉
+                        this.isOpen = false; 
                         this.setStatus('closed');
                         this.setBadge('closed','Booking Closed');
                         this.showEmpty("Schedule Closed", "The booking period has ended. Thank you!");
+                        this.revealPage(); // <-- 補上解除載入畫面
                     }
                 } else {
                     renderBulletin({});
@@ -699,8 +704,17 @@ function toggleBulletin() {
                 const diff = target - new Date();
                 if (diff <= 0) {
                     clearInterval(this.countdownTimer); box.classList.add('hidden');
-                    if (mode === 'close') { this.setStatus('closed'); this.setBadge('closed','Booking Closed'); this.showEmpty("Booking Closed","The booking window has just ended."); }
-                    else location.reload();
+                    if (mode === 'close') { 
+                        // 自動關閉登記防護
+                        this.isOpen = false; 
+                        this.setStatus('closed'); 
+                        this.setBadge('closed','Booking Closed'); 
+                        this.showEmpty("Booking Closed","The booking window has just ended."); 
+                        // 強制關閉任何可能開著的輸入框防呆
+                        if(Swal.isVisible()) Swal.close();
+                    } else {
+                        location.reload();
+                    }
                     return;
                 }
                 const tot = Math.floor(diff/1000);
@@ -991,7 +1005,8 @@ function toggleBulletin() {
 
         async book(tid,slotId,timeLabel,dateLabel) {
             if(Date.now()-this.lastBookingTime<3000)return Swal.fire({icon:'warning',title:'Too Fast!',text:'Please wait a few seconds.',customClass:{popup:'swal-saas'}});
-            if(!this.isOpen)return Swal.fire({icon:'error',title:'Booking Closed',customClass:{popup:'swal-saas'}});
+            // 第一道防線：確保 isOpen 狀態
+            if(!this.isOpen)return Swal.fire({icon:'error',title:'Booking Closed',text:'The booking window is closed.',customClass:{popup:'swal-saas'}});
             this.lastBookingTime=Date.now();
             const t=this.data.teachers.find(x=>x.id===tid);if(!t)return;
             const dd=(dateLabel&&dateLabel!=='General')?`on ${escapeHtml(dateLabel)}`:'';
