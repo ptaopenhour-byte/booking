@@ -1,1512 +1,1295 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBSH PTA Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IBSH PTA Open Hour</title>
+    <!-- Favicon 貓頭鷹 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦉</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Quicksand:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>
-        tailwind.config = { 
-            theme: { 
-                extend: { 
-                    colors: { 
-                        'duo-green': '#58CC02', 
-                        'duo-green-dark': '#46A302', 
-                        'duo-blue': '#1CB0F6',
-                        'duo-blue-dark': '#1899D6',
-                        'duo-red': '#FF4B4B',
-                        'duo-red-dark': '#EA2B2B',
-                        'duo-gray': '#E5E5E5',
-                        'duo-text': '#4B4B4B'
-                    }, 
-                    fontFamily: { 
-                        sans: ['"Nunito"', '"Quicksand"', 'sans-serif'] 
-                    } 
-                } 
-            } 
-        }
-    </script>
     <style>
-        body { background-color: #F7F7F7; color: #4B4B4B; }
+        :root {
+            /* 充滿活力的 Duolingo 風格調色盤 */
+            --duo-green: #58CC02;
+            --duo-green-dark: #58A700;
+            --duo-blue: #1CB0F6;
+            --duo-blue-dark: #1899D6;
+            --duo-red: #FF4B4B;
+            --duo-orange: #FF9600;
+            --text-main: #334155;
+            --text-muted: #94a3b8;
+            /* 活力漸層背景 */
+            --bg-body: #f4f7fa;
+        }
+        * { box-sizing: border-box; }
         
-        /* Duolingo Style UI Components */
-        .btn-duo {
-            border-bottom-width: 4px;
-            border-style: solid;
-            transition: all 0.1s ease-in-out;
-            border-radius: 1rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .btn-duo:active {
-            border-bottom-width: 0px;
-            transform: translateY(4px);
-            margin-bottom: 4px; /* prevent layout shift */
+        body { 
+            font-family: 'Nunito', sans-serif; 
+            background-color: var(--bg-body); 
+            /* 增加隱約的彩色光暈，提升學校活力感 */
+            background-image: 
+                radial-gradient(circle at top left, rgba(28, 176, 246, 0.08), transparent 40%),
+                radial-gradient(circle at bottom right, rgba(255, 150, 0, 0.08), transparent 40%);
+            background-attachment: fixed;
+            min-height: 100vh; 
+            /* 使用 clamp 讓 padding 在不同裝置上自動縮放 */
+            padding: clamp(16px, 3vw, 40px) clamp(12px, 2vw, 24px) 80px; 
+            color: var(--text-main); 
         }
         
-        .card-duo {
-            background-color: white;
-            border: 2px solid #E5E7EB;
-            border-radius: 1.5rem;
-            box-shadow: 0 4px 0 #E5E7EB;
-            transition: transform 0.2s;
-        }
-        
-        .input-duo {
-            background-color: #F3F4F6;
-            border: 2px solid #E5E7EB;
-            border-radius: 1rem;
-            transition: all 0.2s;
-            font-weight: 700;
-        }
-        .input-duo:focus {
-            background-color: white;
-            border-color: #1CB0F6;
-            outline: none;
+        /* 擴大版面，讓視覺更寬敞 (滿版感) */
+        .page-content { 
+            max-width: 1280px; 
+            margin: 0 auto; 
+            width: 100%;
         }
 
 
-        .sidebar-item { border: 2px solid transparent; }
-        .sidebar-item.active { 
-            background-color: #DDF4C5; 
-            color: #58CC02; 
-            border: 2px solid #58CC02;
-        }
-        .sidebar-item:hover:not(.active) { background-color: #F3F4F6; }
-
-
-        .mascot-select:hover { transform: scale(1.1) rotate(5deg); }
-        .mascot-select.selected { border-color: #1CB0F6; background-color: #DDF4C5; transform: scale(1.1); }
-        
-        #loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        #loading-overlay.hidden { display: none; }
-        
-        .custom-scroll::-webkit-scrollbar { width: 8px; height: 8px; } 
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; } 
-        .custom-scroll::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; border: 2px solid #fff; }
-        
-        #sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-
-
-        /* SweetAlert Doodle/Duolingo Style */
-        .swal-saas .swal2-popup { border-radius: 24px !important; border: 2px solid #E5E7EB !important; box-shadow: 0 8px 0 #E5E7EB !important; padding: 32px 24px !important; }
-        .swal-saas .swal2-title { font-family: '"Nunito"', sans-serif !important; font-weight: 900 !important; color: #4B4B4B !important; font-size: 24px !important; }
-        .swal-saas .swal2-confirm { background: #58CC02 !important; border-bottom: 4px solid #46A302 !important; border-radius: 16px !important; font-weight: 800 !important; padding: 12px 32px !important; font-size: 16px !important; transition: all 0.1s!important; }
-        .swal-saas .swal2-confirm:active { transform: translateY(4px)!important; border-bottom-width: 0px!important; margin-bottom: 4px!important;}
-        .swal-saas .swal2-cancel { background: #F3F4F6 !important; color: #9CA3AF !important; border-bottom: 4px solid #E5E7EB !important; border-radius: 16px !important; font-weight: 800 !important; padding: 12px 32px !important; font-size: 16px !important; transition: all 0.1s!important;}
-        .swal-saas .swal2-cancel:active { transform: translateY(4px)!important; border-bottom-width: 0px!important; margin-bottom: 4px!important;}
-        
-        /* Bouncing doodle animation */
+        /* Loading Overlay */
+        #loading-overlay { position:fixed;inset:0;background:#f8fafc;z-index:999;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px; }
+        #loading-overlay.hidden { display:none; }
         @keyframes doodleBounce {
             0%, 100% { transform: translateY(0) scale(1); }
             50% { transform: translateY(-15px) scale(1.05); }
         }
-        .doodle-bounce { animation: doodleBounce 1.5s infinite ease-in-out; }
-    </style>
-</head>
-<body class="font-sans antialiased">
+        .doodle-bounce { animation: doodleBounce 1.5s infinite ease-in-out; display: inline-block; }
 
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay">
-        <div class="text-7xl mb-4 doodle-bounce">🏫</div>
-        <div class="text-xl font-extrabold text-duo-green tracking-wide">Waking up owls...</div>
-    </div>
-
-
-    <!-- Login Screen -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-        <div class="absolute top-10 left-10 text-4xl opacity-20 transform -rotate-12">✨</div>
-        <div class="absolute bottom-20 right-20 text-5xl opacity-20 transform rotate-12"></div>
-        
-        <div class="card-duo p-8 md:p-10 w-full max-w-md relative z-10 bg-white">
-            <div class="text-center mb-6">
-                <div class="text-7xl mb-4 doodle-bounce">🏫</div>                
-                <h1 class="text-3xl font-black text-gray-800 tracking-tight">PTA Open Hour</h1>
-                <p class="text-base text-gray-500 font-bold mt-2">Teacher Portal</p>
-            </div>
-
-
-            <!-- Login Notice Panel -->
-            <div id="login-notice" class="mb-6 bg-blue-50 border-2 border-duo-blue p-4 rounded-xl hidden text-left w-full">
-                <h3 class="text-sm font-black text-duo-blue-dark mb-1"><i class="fas fa-bullhorn"></i> Announcement</h3>
-                <div id="login-notice-text" class="text-sm font-bold text-gray-700 whitespace-pre-wrap leading-relaxed"></div>
-            </div>
-
-
-            <!-- 表單防重整 -->
-            <form onsubmit="event.preventDefault(); if(window.admin) window.admin.login(); return false;" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-extrabold mb-2 text-gray-500 uppercase tracking-wider ml-1">Email</label>
-                    <input type="email" id="login-email" class="input-duo w-full p-4" placeholder="you@ibsh.tw" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-extrabold mb-2 text-gray-500 uppercase tracking-wider ml-1">Password</label>
-                    <input type="password" id="login-password" class="input-duo w-full p-4" placeholder="••••••••" required>
-                </div>
-                <button type="submit" class="btn-duo w-full bg-duo-green text-white border-duo-green-dark py-4 text-lg mt-6">
-                    LOGIN
-                </button>
-            </form>
-            
-            <div class="relative flex py-5 items-center">
-                <div class="flex-grow border-t-2 border-gray-100"></div>
-                <span class="flex-shrink-0 mx-4 text-gray-400 font-extrabold text-sm uppercase tracking-widest">OR</span>
-                <div class="flex-grow border-t-2 border-gray-100"></div>
-            </div>
-
-
-            <button onclick="if(window.admin) window.admin.loginWithGoogle()" class="btn-duo w-full bg-white text-gray-700 border-2 border-gray-200 border-b-4 hover:bg-gray-50 py-4 text-lg flex items-center justify-center gap-3">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6" alt="Google">
-                Sign in with Google
-            </button>
-        </div>
-    </div>
-
-
-    <!-- Mobile Header -->
-    <div id="mobile-header" class="hidden md:hidden fixed top-0 left-0 right-0 bg-white shadow-[0_2px_0_0_#E5E7EB] h-16 z-30 flex items-center gap-4 px-4">
-        <button onclick="admin.toggleSidebar()" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 transition-colors rounded-xl text-gray-600 font-bold border-2 border-gray-200 flex-shrink-0">
-            <i class="fas fa-bars"></i>
-        </button>
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-[#DDF4C5] rounded-2xl flex items-center justify-center text-2xl border-2 border-duo-green">🏫</div>
-            <h1 class="font-black text-gray-800 text-lg">IBSH PTA Open Hour</h1>
-        </div>
-    </div>
-
-
-    <!-- Main Dashboard -->
-    <div id="dashboard" class="hidden min-h-screen flex flex-col md:flex-row pt-16 md:pt-0">
-
-
-        <!-- Sidebar -->
-        <aside id="sidebar" class="bg-white w-72 border-r-2 border-gray-200 flex flex-col h-screen fixed top-0 left-0 z-40 transform -translate-x-full md:translate-x-0 md:sticky md:top-0">
-            <div class="p-6 border-b-2 border-gray-100 flex flex-col gap-2">
-                <div class="flex items-center gap-4 mb-2">
-                    <div class="w-12 h-12 bg-[#DDF4C5] rounded-2xl flex items-center justify-center text-3xl border-2 border-duo-green shadow-sm transform -rotate-3">🏫</div>
-                    <div>
-                        <h1 class="font-black text-gray-800 text-xl tracking-tight">PTA Open Hour</h1>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="role-badge" class="text-xs font-bold text-white bg-duo-blue border-b-2 border-duo-blue-dark px-3 py-1 rounded-xl inline-block uppercase tracking-wider">Loading...</span>
-                </div>
-            </div>
-            
-            <nav class="flex-1 p-4 space-y-3 overflow-y-auto">
-                <p class="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-2 ml-2">Menu</p>
-                <button onclick="admin.showView('bookings')" id="nav-bookings" class="sidebar-item active w-full text-left px-4 py-4 rounded-2xl font-bold transition flex items-center gap-4 text-lg">
-                    <div class="w-8 flex justify-center text-2xl">📅</div> Appointments
-                </button>
-                
-                <!-- 專屬老師編輯自己資料的按鈕 -->
-                <button onclick="if(admin.teacherId) admin.openTeacherModal(admin.teacherId)" id="nav-my-profile" class="sidebar-item w-full text-left px-4 py-4 rounded-2xl font-bold transition flex items-center gap-4 text-lg text-gray-600 hidden">
-                    <div class="w-8 flex justify-center text-2xl">📝</div> My Info
-                </button>
-
-
-                <div id="admin-only-menu" class="space-y-3 hidden">
-                    <button onclick="admin.showView('teachers')" id="nav-teachers" class="sidebar-item w-full text-left px-4 py-4 rounded-2xl font-bold transition flex items-center gap-4 text-lg text-gray-600">
-                        <div class="w-8 flex justify-center text-2xl">🧑‍🏫</div> Teacher List
-                    </button>
-                    <button onclick="admin.showView('batch')" id="nav-batch" class="sidebar-item w-full text-left px-4 py-4 rounded-2xl font-bold transition flex items-center gap-4 text-lg text-gray-600">
-                        <div class="w-8 flex justify-center text-2xl">✨</div> Magic Scheduler
-                    </button>
-                    <div class="pt-4 mt-4 border-t-2 border-gray-100">
-                        <button onclick="admin.showView('settings')" id="nav-settings" class="sidebar-item w-full text-left px-4 py-4 rounded-2xl font-bold transition flex items-center gap-4 text-lg text-gray-600">
-                            <div class="w-8 flex justify-center text-2xl">⚙️</div> Control Room
-                        </button>
-                    </div>
-                </div>
-            </nav>
-            
-            <div class="p-4 border-t-2 border-gray-100 bg-gray-50/50">
-                <div class="bg-white p-3 rounded-2xl border-2 border-gray-200 flex flex-col items-center">
-                    <div class="text-xs font-bold text-gray-500 mb-1 truncate w-full text-center" id="current-user-email">--</div>
-                    <div class="text-[10px] font-extrabold text-duo-green mb-3 uppercase tracking-wider bg-green-100 px-2 py-1 rounded-lg" id="idle-status">Status: Active</div>
-                    <button onclick="admin.logout()" class="btn-duo w-full bg-white text-duo-red border-2 border-gray-200 border-b-4 hover:bg-red-50 py-2 text-sm">
-                        Log Out
-                    </button>
-                </div>
-            </div>
-        </aside>
-
-
-        <div id="sidebar-overlay" onclick="admin.toggleSidebar()" class="fixed inset-0 bg-black/40 z-30 hidden md:hidden backdrop-blur-sm"></div>
-
-
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-y-auto p-4 md:p-8 w-full max-w-7xl mx-auto">
-
-
-            <!-- View: Bookings -->
-            <div id="view-bookings" class="space-y-6">
-                
-                <!-- Dashboard Notice Panel -->
-                <div id="dashboard-notice" class="card-duo p-6 bg-[#FFF4CC] border-2 border-[#FFC800] hidden">
-                    <h3 class="text-lg font-black text-[#D9A100] mb-2"><i class="fas fa-bullhorn"></i> Notice Board</h3>
-                    <p id="dashboard-notice-text" class="text-sm font-bold text-gray-800 whitespace-pre-wrap leading-relaxed"></p>
-                </div>
-
-
-                <div class="card-duo p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
-                    <div>
-                        <h2 class="text-3xl font-black text-gray-800">Who's coming? 🗓️</h2>
-                        <p class="text-base text-gray-500 font-bold mt-1">Here are all the upcoming appointments.</p>
-                    </div>
-                    <div class="flex gap-3 w-full md:w-auto flex-wrap">
-                        <button onclick="admin.refreshBookings()" class="btn-duo flex-1 md:flex-none bg-white text-gray-600 border-2 border-gray-200 border-b-4 hover:bg-gray-50 px-5 py-3">
-                            <i class="fas fa-sync-alt mr-2"></i> Refresh
-                        </button>
-                        <button onclick="admin.exportCSV()" class="btn-duo flex-1 md:flex-none bg-duo-blue text-white border-duo-blue-dark px-5 py-3">
-                            <i class="fas fa-download mr-2"></i> Export
-                        </button>
-                        <!-- Notify Teachers 按鈕 -->
-                        <button id="btn-email-teachers" onclick="admin.emailSchedulesToTeachers()" class="btn-duo flex-1 md:flex-none bg-[#FF9600] text-white border-[#CC7800] px-5 py-3 hidden">
-                            <i class="fas fa-paper-plane mr-2"></i> Notify Teachers
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="bookings-list-container" class="space-y-4 pb-20">
-                    <div id="bookings-table-body" class="space-y-4"></div>
-                    
-                    <div id="bookings-empty" class="hidden card-duo p-16 text-center text-gray-400 flex flex-col items-center bg-white border-dashed border-4 border-gray-200">
-                        <div class="text-7xl mb-4 opacity-50">📭</div>
-                        <p class="font-black text-2xl text-gray-300">It's quiet here...</p>
-                        <p class="font-bold text-gray-400 mt-2">No appointments scheduled yet.</p>
-                    </div>
-                </div>
-            </div>
-
-
-            <!-- View: Teachers -->
-            <div id="view-teachers" class="hidden space-y-6">
-                <div class="card-duo p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
-                    <div>
-                        <h2 class="text-3xl font-black text-gray-800">Our Awesome Team 🦸‍♂️</h2>
-                        <p class="text-base text-gray-500 font-bold mt-1">Manage teacher profiles and mascots.</p>
-                    </div>
-                    
-                    <!-- 批量刪除與新增按鈕 -->
-                    <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto mt-4 md:mt-0 items-center">
-                        <button id="btn-bulk-delete" onclick="admin.bulkDeleteTeachers()" class="hidden btn-duo w-full md:w-auto bg-duo-red text-white border-duo-red-dark px-5 py-3">
-                            <i class="fas fa-trash-alt mr-2"></i> Delete (<span id="bulk-delete-count">0</span>)
-                        </button>
-                        <button onclick="admin.importTeachersBatch()" class="btn-duo w-full md:w-auto bg-white text-duo-blue border-2 border-gray-200 border-b-4 hover:border-duo-blue px-5 py-3">
-                            <i class="fas fa-file-import mr-2"></i> Import
-                        </button>
-                        <button onclick="admin.openTeacherModal()" class="btn-duo w-full md:w-auto bg-duo-green text-white border-duo-green-dark px-6 py-3">
-                            <i class="fas fa-plus mr-2"></i> Add Teacher
-                        </button>
-                    </div>
-                </div>
-
-
-                <!-- 全選按鈕區塊 -->
-                <div class="flex justify-between items-center px-2 mt-2">
-                    <label class="flex items-center gap-2 cursor-pointer group">
-                        <div class="relative w-6 h-6">
-                            <input type="checkbox" id="select-all-teachers" class="peer sr-only" onchange="admin.toggleAllTeachers(this.checked)">
-                            <div class="w-6 h-6 rounded-lg border-2 border-gray-200 bg-white peer-checked:bg-duo-blue peer-checked:border-duo-blue-dark flex items-center justify-center text-transparent peer-checked:text-white transition shadow-sm group-hover:border-duo-blue">
-                                <i class="fas fa-check text-xs"></i>
-                            </div>
-                        </div>
-                        <span class="text-sm font-black text-gray-500 group-hover:text-gray-800 transition uppercase tracking-widest">Select All</span>
-                    </label>
-                </div>
-
-
-                <div id="teachers-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20"></div>
-            </div>
-
-
-            <!-- View: Batch -->
-            <div id="view-batch" class="hidden space-y-6">
-                <div class="card-duo p-6 md:p-8 bg-white">
-                    <h2 class="text-3xl font-black text-gray-800 mb-8 flex items-center gap-3">
-                        <div class="w-12 h-12 bg-[#FFF4CC] rounded-2xl flex items-center justify-center text-2xl border-2 border-[#FFC800]">✨</div> 
-                        Magic Scheduler
-                    </h2>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                        <div class="lg:col-span-3 space-y-4">
-                            <div class="flex justify-between items-end mb-4 border-b-2 border-gray-100 pb-2">
-                                <h3 class="font-black text-xl text-gray-700">1. Pick the Teachers</h3>
-                                <div class="flex gap-2">
-                                    <select id="batch-filter-subject" onchange="admin.renderBatchSelection()" class="input-duo py-2 px-3 text-sm"><option value="all">All Subjects</option></select>
-                                    <button onclick="admin.toggleAllBatch(true)" class="btn-duo bg-white border-2 border-gray-200 border-b-4 text-xs px-3 py-2 text-gray-600">All</button>
-                                    <button onclick="admin.toggleAllBatch(false)" class="btn-duo bg-white border-2 border-gray-200 border-b-4 text-xs px-3 py-2 text-gray-600">None</button>
-                                </div>
-                            </div>
-                            <div id="batch-teacher-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto custom-scroll p-2 border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50/50"></div>
-                        </div>
-                        
-                        <div class="lg:col-span-2">
-                            <div class="bg-white border-2 border-[#1CB0F6] rounded-3xl p-6 shadow-[0_4px_0_0_#1CB0F6] relative h-fit">
-                                <div class="absolute -top-4 -right-4 text-3xl transform rotate-12">⚙️</div>
-                                <h3 class="font-black text-xl text-[#1899D6] mb-6">2. Set the Time</h3>
-                                <div class="space-y-5">
-                                    <div><label class="text-xs font-extrabold text-gray-500 uppercase tracking-widest block mb-2">Date</label><input id="batch-date" type="date" class="input-duo w-full p-4"></div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div><label class="text-xs font-extrabold text-gray-500 uppercase tracking-widest block mb-2">Start At</label><input id="batch-start" type="time" class="input-duo w-full p-4" value="13:00"></div>
-                                        <div><label class="text-xs font-extrabold text-gray-500 uppercase tracking-widest block mb-2">How Many?</label><input id="batch-count" type="number" class="input-duo w-full p-4" value="10"></div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div><label class="text-xs font-extrabold text-gray-500 uppercase tracking-widest block mb-2">Mins / Slot</label><input id="batch-dur" type="number" class="input-duo w-full p-4" value="10"></div>
-                                        <div><label class="text-xs font-extrabold text-gray-500 uppercase tracking-widest block mb-2">Break</label><input id="batch-break" type="number" class="input-duo w-full p-4" value="5"></div>
-                                    </div>
-                                    
-                                    <div class="pt-6 mt-4 border-t-2 border-gray-100">
-                                        <div class="flex items-center justify-between mb-4 bg-[#DDF4C5] p-3 rounded-2xl border-2 border-duo-green">
-                                            <span class="text-sm font-extrabold text-duo-green-dark uppercase">Selected Teachers:</span>
-                                            <span id="batch-selected-count" class="text-xl font-black text-duo-green">0</span>
-                                        </div>
-                                        <button onclick="admin.runBatch()" class="btn-duo w-full bg-[#1CB0F6] text-white border-[#1899D6] py-4 text-lg">POOF! Generate Slots 🪄</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-            <!-- View: Settings -->
-            <div id="view-settings" class="hidden space-y-6 pb-20">
-                <div class="card-duo p-8 md:p-10 max-w-3xl mx-auto bg-white">
-                    <h2 class="text-3xl font-black text-gray-800 mb-8 flex items-center gap-3">
-                        <div class="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center text-2xl border-2 border-gray-300">🎛️</div> 
-                        Control Room
-                    </h2>
-                    
-                    <div class="space-y-8">
-                        <div class="bg-blue-50 border-2 border-[#1CB0F6] rounded-3xl p-6 shadow-[0_4px_0_0_#1CB0F6]">
-                            <h3 class="text-lg font-black text-[#1899D6] mb-2"><i class="fas fa-clock mr-2"></i> The Great Clock</h3>
-                            <p class="text-sm font-bold text-blue-600 mb-5">Set when parents can start and stop booking.</p>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div><label class="block text-sm font-extrabold text-gray-500 uppercase tracking-widest mb-2">Doors Open</label><input id="setting-start" type="datetime-local" class="input-duo w-full p-4"></div>
-                                <div><label class="block text-sm font-extrabold text-gray-500 uppercase tracking-widest mb-2">Doors Close</label><input id="setting-end" type="datetime-local" class="input-duo w-full p-4"></div>
-                            </div>
-                        </div>
-
-
-                        <!-- Teacher Portal Notice -->
-                        <div class="card-duo p-6 bg-white border-2 border-gray-200">
-                            <h3 class="text-lg font-black text-gray-800 mb-4"><i class="fas fa-chalkboard-teacher text-duo-green mr-2"></i> Teacher Portal Notice</h3>
-                            <label class="block text-sm font-extrabold text-gray-500 uppercase tracking-widest mb-2">Message for Teachers</label>
-                            <p class="text-xs font-bold text-gray-400 mb-3">This will be displayed on the teacher login screen and dashboard.</p>
-                            <textarea id="setting-backend-notice" rows="3" class="input-duo w-full p-4 leading-relaxed" placeholder="e.g., Please remember to set your availability by Friday!"></textarea>
-                        </div>
-
-
-                        <!-- Notice Board (Rules Removed) -->
-                        <div class="card-duo p-6 bg-white border-2 border-gray-200">
-                            <h3 class="text-lg font-black text-gray-800 mb-4"><i class="fas fa-bullhorn text-duo-green mr-2"></i> Notice Board</h3>
-                            <label class="block text-sm font-extrabold text-gray-500 uppercase tracking-widest mb-2">Big Announcement</label>
-                            <textarea id="setting-announcement" rows="2" class="input-duo w-full p-4" placeholder="Welcome to Parent-Teacher Conferences!"></textarea>
-                        </div>
-
-
-                        <div class="card-duo p-6 bg-white border-2 border-gray-200">
-                            <h3 class="text-lg font-black text-gray-800 mb-2"><i class="fas fa-plug text-duo-green mr-2"></i> Magic Wires (GAS)</h3>
-                            <p class="text-sm font-bold text-gray-500 mb-4">Where do the confirmation emails come from?</p>
-                            <input id="setting-gas-url" type="url" class="input-duo w-full p-4 font-mono text-sm mb-4" placeholder="https://script.google.com/macros/s/.../exec">
-                            <button onclick="admin.testGAS()" class="btn-duo bg-white text-duo-green border-2 border-gray-200 border-b-4 hover:border-duo-green px-5 py-3">
-                                <i class="fas fa-bolt mr-2 text-yellow-400"></i> Test Connection
-                            </button>
-                        </div>
-
-
-                        <div class="pt-4">
-                            <button onclick="admin.saveSettings()" class="btn-duo w-full bg-duo-green text-white border-duo-green-dark py-4 text-xl">Save All Settings 💾</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getFirestore, doc, collection, addDoc, setDoc, deleteDoc, getDoc, getDocs, onSnapshot, query, where, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyA-IZxVbMBc8_2_FQEmAgnzPYrR_Q-QPV4",
-            authDomain: "ibsh-pta.firebaseapp.com", projectId: "ibsh-pta",
-            storageBucket: "ibsh-pta.firebasestorage.app",
-            messagingSenderId: "330845985530",
-            appId: "1:330845985530:web:eed4ffc5e4fd5f036e4743"
-        };
-
-
-        const compressImage = (file) => new Promise((resolve, reject) => {
-            const reader = new FileReader(); reader.readAsDataURL(file);
-            reader.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const cvs = document.createElement('canvas'); let w=img.width, h=img.height; const MAX=150; if(w>h){if(w>MAX){h*=MAX/w;w=MAX}}else{if(h>MAX){w*=MAX/h;h=MAX}} cvs.width=w; cvs.height=h; cvs.getContext('2d').drawImage(img,0,0,w,h); resolve(cvs.toDataURL('image/jpeg',0.7)); }; img.onerror=reject; }; reader.onerror=reject;
-        });
-
-
-        const getMascotSVG = (id) => { 
-            const animals = ['🦊', '🐱', '🐼', '🐨', '🐶', '🐰', '🐯', '🐻', '🐮', '🐷', '🐸', '🐵', '🦄', '🦖', '🐙', '🦉'];
-            const colors = ['#FFD1DC', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF', '#FFDFD3', '#F4F4F8', '#E2F0CB', '#FFB7B2', '#C7CEEA', '#B5EAD7', '#FF9CEE', '#B2FBA5', '#84D8FF', '#DDF4C5'];
-            const borders = ['#FF9EBB', '#FFB56B', '#E5E56B', '#6BE58B', '#6BA4FF', '#CA6BFF', '#FF9E8B', '#D1D1E0', '#B0D878', '#FF7A70', '#8F9DE3', '#72D1AC', '#FF5CE5', '#60E540', '#40B8FF', '#58CC02'];
-            const i = id % animals.length;
-            return `<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="50" r="46" fill="${colors[i]}" stroke="${borders[i]}" stroke-width="8"/><text x="50" y="68" font-size="45" text-anchor="middle">${animals[i]}</text></svg>`; 
-        };
-
-
-        async function callGAS(payload) {
-            const url = admin.gasUrl;
-            if (!url || url.includes('YOUR_SCRIPT_ID')) {
-                console.warn("GAS URL not configured");
-                return { ok: false, error: "GAS URL not set" };
-            }
-            try {
-                const res = await fetch(url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) });
-                return await res.json();
-            } catch(err) {
-                console.warn("GAS call failed:", err);
-                return { ok: false, error: err.message };
-            }
+        /* Header 橫幅設計 - 增加活力與層次 */
+        .card-header { 
+            background: white;
+            border-radius: 32px; 
+            padding: clamp(32px, 6vw, 48px) 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.03);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid #f1f5f9;
+        }
+        .card-header::before { 
+            content:'';
+            position:absolute;
+            top:0; left:0; right:0; height:8px;
+            background: linear-gradient(90deg, var(--duo-blue), var(--duo-green), var(--duo-orange)); 
+        }
+        .board-title { 
+            font-size: clamp(32px, 6vw, 56px); 
+            font-weight: 900;
+            color: #1e293b;
+            margin-bottom: 12px;
+            letter-spacing: -1px; 
+        }
+        .board-subtitle { 
+            font-size: clamp(16px, 3vw, 20px); 
+            font-weight: 700; 
+            color: var(--text-muted); 
+            background: #f1f5f9;
+            display: inline-block;
+            padding: 6px 20px;
+            border-radius: 999px;
         }
 
 
-        const admin = {
-            db: null, auth: null, gasUrl: "",
-            paths: {
-                teachersCollection: 'artifacts/ibsh-pta-v2/public/data/teachers',
-                bookings: 'artifacts/ibsh-pta-v2/private_bookings',
-                config: 'artifacts/ibsh-pta-v2/public/system_settings'
-            },
-            data: { teachers: [], bookings: [] },
-            loginAttempts: 0, MAX_ATTEMPTS: 5,
-            ADMIN_EMAILS: ['ptaopenhour@ibsh.tw', 'pta.admin@ibsh.tw'],
-            subjects: ["A&T","Chinese","CSS & WSS","English","Middle School Humanities","Elementary","Math","PE","Science"],
-            IDLE_TIMEOUT: 15 * 60 * 1000, idleTimer: null, lastActivity: Date.now(),
-            userRole: 'loading', teacherId: null, currentUserEmail: '',
-            
-            modalSlots: [], modalTeacherId: null,
+        /* ═══════════════════════════════════
+            BULLETIN BOARD
+        ═══════════════════════════════════ */
+        #bulletin-board { 
+            background: white;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+            border: 3px solid #f1f5f9; 
+        }
 
 
-            init() {
-                const app = initializeApp(firebaseConfig);
-                this.db = getFirestore(app);
-                this.auth = getAuth(app);
-                document.getElementById('batch-date').valueAsDate = new Date();
+        .bulletin-header { 
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap; 
+        }
+        .bulletin-dots { display:flex; gap:8px; align-items:center; }
+        .bulletin-dot { width:12px; height:12px; border-radius:50%; box-shadow:inset 0 2px 4px rgba(0,0,0,0.2); }
+        .bulletin-title { font-size:14px; font-weight:900; color:white; text-transform:uppercase; letter-spacing:2px; margin-left:12px; }
+        .bulletin-toggle-btn { 
+            background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 12px; 
+            padding: 8px 16px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .2s; 
+            display: flex; align-items: center; gap: 8px; 
+        }
+        .bulletin-toggle-btn:hover { background: rgba(255,255,255,0.25); transform: translateY(-1px); }
 
 
-                // 監聽系統設定 (登入頁面與後台共用資訊欄)
-                onSnapshot(doc(this.db, this.paths.config), (s) => {
-                    if (s.exists()) {
-                        const d = s.data();
-                        
-                        // 1. 更新登入畫面與後台的資訊欄
-                        const ln = document.getElementById('login-notice');
-                        const lnt = document.getElementById('login-notice-text');
-                        const dn = document.getElementById('dashboard-notice');
-                        const dnt = document.getElementById('dashboard-notice-text');
-                        
-                        if (d.backendNotice && d.backendNotice.trim() !== '') {
-                            if (ln) { ln.classList.remove('hidden'); lnt.innerText = d.backendNotice; }
-                            if (dn) { dn.classList.remove('hidden'); dnt.innerText = d.backendNotice; }
-                        } else {
-                            if (ln) ln.classList.add('hidden');
-                            if (dn) dn.classList.add('hidden');
-                        }
+        .bulletin-body { display:grid; grid-template-columns: 1fr 1fr; gap:0; }
+        @media(max-width: 768px) { .bulletin-body { grid-template-columns: 1fr; } }
 
 
-                        // 2. 更新 Settings 表單資料
-                        if (document.getElementById('setting-start')) {
-                            document.getElementById('setting-start').value = d.start || '';
-                            document.getElementById('setting-end').value = d.end || '';
-                            document.getElementById('setting-announcement').value = d.announcement || '';
-                            document.getElementById('setting-backend-notice').value = d.backendNotice || '';
-                            if(d.gasUrl) { document.getElementById('setting-gas-url').value = d.gasUrl; this.gasUrl = d.gasUrl; }
-                        }
-                    }
-                });
+        /* Booking Window */
+        .booking-window-panel { padding: clamp(20px, 4vw, 32px); border-right: 2px solid #f1f5f9; background: #fafcff; }
+        @media(max-width: 768px) { .booking-window-panel { border-right:none; border-bottom: 2px solid #f1f5f9; } }
+        
+        .panel-label { font-size:12px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:2px; margin-bottom:20px; display:flex; align-items:center; gap:8px; }
 
 
-                onAuthStateChanged(this.auth, async (user) => {
-                    const overlay = document.getElementById('loading-overlay');
-                    if (user) {
-                        this.currentUserEmail = user.email;
-                        document.getElementById('current-user-email').innerText = user.email;
-                        
-                        const hasAccess = await this.determineRole(user.email);
-                        if (!hasAccess) { overlay.classList.add('hidden'); return; }
+        .time-row { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+        .time-icon { width:44px; height:44px; border-radius:14px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:18px; }
+        .time-icon.open-icon  { background:#dcfce7; }
+        .time-icon.close-icon { background:#fee2e2; }
+        .time-label { font-size:12px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
+        .time-value { font-size:clamp(15px, 2.5vw, 18px); font-weight:900; color:#1e293b; margin-top:2px; }
 
 
-                        document.getElementById('login-screen').classList.add('hidden');
-                        document.getElementById('dashboard').classList.remove('hidden');
-                        document.getElementById('mobile-header').classList.remove('hidden');
-                        document.getElementById('mobile-header').classList.add('flex');
-                        
-                        this.loadBookings();
-                        this.loadTeachers(); // 老師也需要載入名單才能編輯自己的資料
-                        
-                        this.startIdleDetection();
-                        this.loginAttempts = 0;
-                    } else {
-                        document.getElementById('login-screen').classList.remove('hidden');
-                        document.getElementById('dashboard').classList.add('hidden');
-                        document.getElementById('mobile-header').classList.add('hidden');
-                    }
-                    overlay.classList.add('hidden');
-                });
-            },
+        .status-badge-inline { display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:800; padding:6px 16px; border-radius:999px; margin-top:16px; }
+        .badge-open   { background:#dcfce7; color:#16a34a; }
+        .badge-closed { background:#fee2e2; color:#dc2626; }
+        .badge-soon   { background:#fef3c7; color:#d97706; }
 
 
-            toggleSidebar() {
-                const sb = document.getElementById('sidebar');
-                const ov = document.getElementById('sidebar-overlay');
-                if (sb.classList.contains('-translate-x-full')) { sb.classList.remove('-translate-x-full'); ov.classList.remove('hidden'); }
-                else { sb.classList.add('-translate-x-full'); ov.classList.add('hidden'); }
-            },
+        /* Countdown */
+        .countdown-box { display:flex; align-items:center; gap:12px; margin-top:20px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:16px; padding:12px 20px; flex-wrap:wrap; }
+        .countdown-box.hidden { display:none; }
+        .countdown-label { font-size:12px; font-weight:900; color:#64748b; text-transform:uppercase; letter-spacing:1px; }
+        .countdown-digits { display:flex; align-items:center; gap:6px; }
+        .cd-block { background:#1e293b; color:#f8fafc; border-radius:10px; padding:6px 10px; font-size:20px; font-weight:900; font-family:monospace; min-width:44px; text-align:center; box-shadow: 0 4px 0 #0f172a; }
+        .cd-sep { color:#94a3b8; font-weight:900; font-size:20px; }
 
 
-            async determineRole(email) {
-                if (this.ADMIN_EMAILS.includes(email)) { 
-                    this.userRole='admin'; this.updateRoleUI("Super Admin","bg-duo-blue border-duo-blue-dark",false); return true; 
-                }
-                try {
-                    const q = query(collection(this.db, this.paths.teachersCollection), where("email","==",email));
-                    const snap = await getDocs(q);
-                    if (!snap.empty) { 
-                        this.userRole='teacher'; this.teacherId=snap.docs[0].id; this.updateRoleUI("Teacher","bg-[#FFC800] border-[#E5B400] text-gray-800",true); return true; 
-                    } else { 
-                        await Swal.fire({icon:'error',title:'Uh oh!',text:'You don\'t have access here.',confirmButtonColor:'#FF4B4B',customClass:{popup:'swal-saas'},allowOutsideClick:false});
-                        await signOut(this.auth); return false; 
-                    }
-                } catch(e) { 
-                    await Swal.fire({icon:'error',title:'Error',text:'Role check failed.',confirmButtonColor:'#FF4B4B',customClass:{popup:'swal-saas'}});
-                    await signOut(this.auth); return false; 
-                }
-            },
+        /* Announcements */
+        .announcement-panel { padding: clamp(20px, 4vw, 32px); }
+        .announcement-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100px; color:#cbd5e1; font-size:15px; font-weight:800; text-align:center; gap:10px; }
+        .announcement-item { background:#fffbeb; border:2px solid #fde68a; border-radius:16px; padding:16px; margin-bottom:12px; display:flex; gap:12px; align-items:flex-start; }
+        .announcement-item:last-child { margin-bottom:0; }
+        .ann-icon { font-size:20px; flex-shrink:0; margin-top:2px; }
+        .ann-text { font-size:15px; font-weight:700; color:#92400e; line-height:1.6; }
 
 
-            updateRoleUI(label, colorClasses, hideMenu) {
-                const badge = document.getElementById('role-badge');
-                badge.innerText = label; 
-                badge.className = `text-xs font-black text-white ${colorClasses} border-b-2 px-3 py-1 rounded-xl inline-block uppercase tracking-wider mt-1`;
-                
-                const menu = document.getElementById('admin-only-menu');
-                if (hideMenu) menu.classList.add('hidden'); else menu.classList.remove('hidden');
-                
-                // 控制通知老師按鈕只有管理員可見
-                const btnNotify = document.getElementById('btn-email-teachers');
-                if (btnNotify) {
-                    if (this.userRole === 'admin') btnNotify.classList.remove('hidden');
-                    else btnNotify.classList.add('hidden');
-                }
+        /* Controls */
+        .controls-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px; }
+        .status-pill { font-weight:900; font-size:15px; padding:10px 24px; border-radius:30px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(0,0,0,0.05); text-transform: uppercase; letter-spacing: 1px; }
+        .status-open    { background:var(--duo-green); color:white; border-bottom: 3px solid var(--duo-green-dark); }
+        .status-closed  { background:var(--duo-red); color:white; border-bottom: 3px solid #cc3c3c; }
+        .status-soon    { background:var(--duo-orange); color:white; border-bottom: 3px solid #cc7800; }
+        .status-checking{ background:#e2e8f0; color:#64748b; }
+        
+        .manage-btn { 
+            background: var(--duo-blue); color: white; border: none; 
+            padding: 12px 28px; border-radius: 30px; font-weight: 900; font-size: 16px; 
+            border-bottom: 4px solid var(--duo-blue-dark);
+            cursor: pointer; transition: all .15s cubic-bezier(0.34,1.56,0.64,1); 
+            display: flex; align-items: center; gap: 8px;
+        }
+        .manage-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+        .manage-btn:active { transform: translateY(2px); border-bottom-width: 0px; margin-bottom: 4px; }
 
 
-                // 控制老師自己的「編輯資訊」按鈕
-                const btnProfile = document.getElementById('nav-my-profile');
-                if (btnProfile) {
-                    if (this.userRole === 'teacher') btnProfile.classList.remove('hidden');
-                    else btnProfile.classList.add('hidden');
-                }
-            },
+        /* Main Board - 寬敞舒適 */
+        .board { 
+            background: white; border-radius: 32px; 
+            padding: clamp(24px, 5vw, 48px); 
+            box-shadow: 0 16px 40px rgba(0,0,0,0.04); min-height: 600px; 
+            border: 3px solid #f1f5f9;
+        }
+        .board-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:32px; flex-wrap:wrap; gap:20px; border-bottom:2px solid #f1f5f9; padding-bottom:24px; }
+        
+        /* 步驟導覽列 */
+        .progress-steps { display:flex; align-items:center; gap:12px; font-weight:800; font-size: clamp(14px, 2vw, 18px); flex-wrap: wrap; }
+        .step { color:var(--text-muted); transition: color 0.3s; }
+        .step.active { color:var(--duo-green-dark); }
+        
+        .search-box { position:relative; width:100%; max-width: 360px; } 
+        .search-input { 
+            width:100%; padding:14px 20px; 
+            border:2px solid #e2e8f0; border-radius:20px; 
+            font-family:'Nunito',sans-serif; font-weight:800; font-size:16px; 
+            color:var(--text-main); transition:all .2s; background:#f8fafc; 
+        }
+        .search-input:focus { outline:none; border-color:var(--duo-blue); background:white; box-shadow:0 0 0 4px rgba(28,176,246,.15); }
 
 
-            startIdleDetection() {
-                const resetIdleStatus = () => {
-                    this.lastActivity = Date.now();
-                    const idleStatusEl = document.getElementById('idle-status');
-                    if (idleStatusEl.innerText !== 'Status: Active') {
-                        idleStatusEl.innerText = 'Status: Active';
-                        idleStatusEl.className = 'text-[10px] font-extrabold text-duo-green mb-3 uppercase tracking-wider bg-green-100 px-2 py-1 rounded-lg';
-                    }
-                };
+        /* Subjects Grid & Teacher Select Grid */
+        .subjects-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
+            gap: 24px; 
+        }
+        .subject-card { 
+            background: white; border-radius: 24px; padding: 32px 20px; text-align: center; 
+            cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.03); 
+            border: 3px solid #f1f5f9; transition: all .2s cubic-bezier(0.34,1.56,0.64,1); 
+            display: flex; flex-direction: column; align-items: center; gap: 16px; 
+        }
+        .subject-card:hover { transform: translateY(-8px); box-shadow: 0 16px 32px rgba(0,0,0,0.08); border-color: var(--duo-green); }
+        .subject-icon { font-size: 56px; } 
+        .subject-name { font-size: 22px; font-weight: 900; color: #1e293b; line-height: 1.2; }
+        .subject-count { background: #f1f5f9; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; color: #64748b; }
 
 
-                ['mousedown', 'keypress', 'scroll', 'touchstart'].forEach(e => {
-                    document.addEventListener(e, resetIdleStatus, { passive: true });
-                });
-                
-                if (this.idleTimer) clearInterval(this.idleTimer);
-                this.idleTimer = setInterval(() => {
-                    const idle = Date.now() - this.lastActivity;
-                    const rem = Math.ceil((this.IDLE_TIMEOUT - idle) / 60000);
-                    if(rem <= 2 && rem > 0) {
-                        const s = document.getElementById('idle-status');
-                        s.innerText = `Idle: ${rem}m left`;
-                        s.className = 'text-[10px] font-extrabold text-duo-red mb-3 uppercase tracking-wider bg-red-100 px-2 py-1 rounded-lg';
-                    }
-                    if(idle > this.IDLE_TIMEOUT) { 
-                        clearInterval(this.idleTimer); 
-                        Swal.fire({icon:'warning',title:'Zzz...',text:'You were asleep for too long! Session expired.',confirmButtonColor:'#FF4B4B',customClass:{popup:'swal-saas'}}).then(()=>signOut(this.auth)); 
-                    }
-                }, 60000);
-            },
+        /* 專屬第二層選老師的卡片 */
+        .teacher-select-card {
+            background: white; border-radius: 24px; padding: 24px 20px; text-align: center; 
+            cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.03); 
+            border: 3px solid #f1f5f9; transition: all .2s cubic-bezier(0.34,1.56,0.64,1); 
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+        }
+        .teacher-select-card:hover { transform: translateY(-8px); box-shadow: 0 16px 32px rgba(0,0,0,0.08); border-color: var(--duo-blue); }
+        
+        /* 老師頭像顯示 (無 hover info 效果) */
+        .ts-avatar-wrapper { position: relative; width: 80px; height: 80px; margin-bottom: 4px; }
+        .ts-avatar { width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+        .teacher-select-card:hover .ts-avatar { transform: scale(1.05); }
 
 
-            login() {
-                if (this.loginAttempts >= this.MAX_ATTEMPTS) return Swal.fire({title:'Locked',text:'Too many attempts. Take a breath.',icon:'error',customClass:{popup:'swal-saas'}});
-                const e = document.getElementById('login-email').value;
-                const p = document.getElementById('login-password').value;
-                document.getElementById('loading-overlay').classList.remove('hidden');
-                signInWithEmailAndPassword(this.auth, e, p).catch(() => {
-                    this.loginAttempts++;
-                    document.getElementById('loading-overlay').classList.add('hidden');
-                    Swal.fire({title:'Oops!',text:'Incorrect email or password.',icon:'error',customClass:{popup:'swal-saas'},confirmButtonColor:'#FF4B4B'});
-                });
-            },
+        .ts-name { font-size: 20px; font-weight: 900; color: #1e293b; line-height: 1.2; }
+        .ts-meta { background: #f1f5f9; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: 800; color: #64748b; }
 
 
-            async loginWithGoogle() {
-                const provider = new GoogleAuthProvider();
-                document.getElementById('loading-overlay').classList.remove('hidden');
-                try {
-                    await signInWithPopup(this.auth, provider);
-                } catch(e) {
-                    console.error("Google 登入詳細錯誤:", e);
-                    document.getElementById('loading-overlay').classList.add('hidden');
-                    
-                    let errorMsg = 'Google Sign-In failed or cancelled.';
-                    if (e.code === 'auth/unauthorized-domain') {
-                        errorMsg = '這個網址還沒有被加入 Firebase 的授權名單中！請至 Authentication > Settings > Authorized domains 設定。';
-                    } else if (e.code === 'auth/popup-closed-by-user') {
-                        errorMsg = '你關閉了登入視窗。';
-                    } else if (e.code === 'auth/popup-blocked') {
-                        errorMsg = '瀏覽器阻擋了彈出視窗，請允許彈出視窗。';
-                    } else {
-                        errorMsg = e.message || '未知錯誤，請查看 Console。';
-                    }
-                    
-                    Swal.fire({title:'Oops!',text:errorMsg,icon:'error',customClass:{popup:'swal-saas'}});
-                }
-            },
+        /* Teachers Detail Card (Step 3) - 全新簡歷式排版 */
+        .teacher-card { 
+            background: white; border-radius: 28px; 
+            padding: clamp(20px, 4vw, 40px); 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.03); border: 3px solid #f1f5f9; 
+            display: flex; flex-direction: column; gap: 32px; 
+        }
+        
+        .teacher-resume-header {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        @media(max-width: 600px) {
+            .teacher-resume-header { flex-direction: column; text-align: center; }
+        }
 
 
-            logout() {
-                clearInterval(this.idleTimer);
-                Swal.fire({title:'Leaving so soon?',text:'See you next time!',icon:'question',showCancelButton:true,confirmButtonText:'Yes, Log out',cancelButtonText:'Stay',customClass:{popup:'swal-saas'}}).then(r => { if(r.isConfirmed) signOut(this.auth); });
-            },
+        .teacher-avatar-large { width: 100px; height: 100px; border-radius: 50%; flex-shrink: 0; background: transparent; display: flex; align-items: center; justify-content: center; }
+        .teacher-name-large { font-size: clamp(24px, 4vw, 32px); font-weight: 900; color: #1e293b; line-height: 1.2; margin-bottom: 12px; }
+        
+        .teacher-meta-tags { display: flex; gap: 12px; flex-wrap: wrap; }
+        @media(max-width: 600px) { .teacher-meta-tags { justify-content: center; } }
+        .teacher-meta-tag {
+            background: #f1f5f9; color: #475569;
+            padding: 8px 16px; border-radius: 12px;
+            font-size: 14px; font-weight: 800;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
 
 
-            showView(viewId) {
-                if (this.userRole==='teacher' && viewId!=='bookings') return;
-                ['bookings','teachers','batch','settings'].forEach(v => { const el=document.getElementById(`view-${v}`); if(el) el.classList.add('hidden'); });
-                document.querySelectorAll('.sidebar-item').forEach(el => { el.classList.remove('active'); el.classList.remove('border-duo-green'); if(!el.id?.startsWith('nav-')) el.classList.add('hover:bg-gray-50'); });
-                document.getElementById(`view-${viewId}`)?.classList.remove('hidden');
-                const nav = document.getElementById(`nav-${viewId}`);
-                if(nav) { nav.classList.add('active'); nav.classList.add('border-duo-green'); }
-                if (viewId==='batch') this.renderBatchSelection();
-                if (viewId==='teachers') this.renderTeachers();
-                if (window.innerWidth < 768) this.toggleSidebar();
-            },
+        .teacher-resume-note {
+            background: #f8fafc; border-radius: 20px; padding: 24px; border: 2px solid #f1f5f9; text-align: left;
+        }
+        .note-title { font-size: 13px; font-weight: 900; color: #94a3b8; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+        .note-content { font-size: 15px; color: #475569; font-weight: 700; line-height: 1.6; }
 
 
-            async loadTeachers() {
-                onSnapshot(query(collection(this.db, this.paths.teachersCollection)), s => {
-                    this.data.teachers = s.docs.map(d => ({id:d.id,...d.data()})); 
-                    if (this.userRole === 'admin') this.renderTeachers();
-                });
-            },
+        /* Slots */
+        .slots-area { width: 100%; border-top: 2px solid #f1f5f9; padding-top: 32px; }
+        .slots-area-title { font-size: 18px; font-weight: 900; color: #1e293b; margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
+        
+        .date-label { font-size: 15px; font-weight: 900; color: var(--duo-blue); margin: 0 0 16px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;}
+        .slots-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 32px; }
+        .slots-row:last-child { margin-bottom: 0; }
+        
+        .slot-btn { 
+            font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 900; 
+            padding: 12px 20px; border-radius: 16px; border: 2px solid #e2e8f0; 
+            background: white; color: #475569; cursor: pointer; 
+            transition: all .15s cubic-bezier(0.34,1.56,0.64,1); 
+            box-shadow: 0 4px 0 #e2e8f0; 
+        }
+        .slot-available { border-color: var(--duo-green); color: var(--duo-green-dark); box-shadow: 0 4px 0 var(--duo-green); }
+        .slot-available:hover { 
+            background: var(--duo-green); color: white; 
+            transform: translateY(-2px); box-shadow: 0 6px 0 var(--duo-green-dark); 
+        }
+        .slot-available:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; }
+        .slot-booked { background: #f8fafc; border-color: #e2e8f0; color: #cbd5e1; box-shadow: none; text-decoration: line-through; cursor: not-allowed; opacity: 0.8; }
+        .slot-locked { background: #fef9c3; border-color: #fde047; color: #a16207; box-shadow: none; cursor: not-allowed; }
+        .slot-locked i { animation: spin 1s linear infinite; margin-left: 6px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
 
-            renderTeachers() {
-                const grid = document.getElementById('teachers-grid'); if(!grid) return; 
-                if (this.data.teachers.length===0) { 
-                    grid.innerHTML='<div class="col-span-full card-duo p-10 text-center text-gray-400 font-bold border-dashed">No teachers found. Add some!</div>'; 
-                    this.updateTeacherSelection(); 
-                    return; 
-                }
-                
-                let html = '';
-                [...this.data.teachers].sort((a,b)=>(a.subject||'').localeCompare(b.subject||'')).forEach(t => {
-                    const imgHtml = t.image ? `<img src="${t.image}" class="w-full h-full object-cover rounded-full border-4 border-white shadow-sm">` : getMascotSVG(t.mascot||0);
-                    html += `
-                    <div class="card-duo p-5 flex flex-col items-center text-center relative hover:-translate-y-1 transition bg-white group">
-                        <label class="absolute top-4 left-4 z-10 cursor-pointer group/cb">
-                            <input type="checkbox" class="peer sr-only teacher-checkbox" value="${t.id}" onchange="admin.updateTeacherSelection()">
-                            <div class="w-6 h-6 rounded-lg border-2 border-gray-200 bg-white peer-checked:bg-duo-red peer-checked:border-duo-red-dark flex items-center justify-center text-transparent peer-checked:text-white transition shadow-sm group-hover/cb:border-duo-red">
-                                <i class="fas fa-check text-xs"></i>
-                            </div>
-                        </label>
-                        
-                        <div class="absolute top-4 right-4 flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="admin.openTeacherModal('${t.id}')" class="w-10 h-10 rounded-xl bg-blue-100 text-duo-blue hover:bg-duo-blue hover:text-white transition flex items-center justify-center font-bold border-2 border-transparent hover:border-duo-blue-dark"><i class="fas fa-pen"></i></button>
-                            <button onclick="admin.deleteTeacher('${t.id}')" class="w-10 h-10 rounded-xl bg-red-100 text-duo-red hover:bg-duo-red hover:text-white transition flex items-center justify-center font-bold border-2 border-transparent hover:border-duo-red-dark"><i class="fas fa-trash"></i></button>
+        .back-btn { 
+            background: white; color: #64748b; border: 2px solid #e2e8f0; 
+            padding: 10px 20px; font-size: 15px; border-radius: 16px; font-weight: 900; 
+            display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all .2s; 
+        }
+        .back-btn:hover { background: #f8fafc; color: #1e293b; border-color: #cbd5e1; transform: translateX(-4px); }
+
+
+        .empty-state { text-align: center; padding: clamp(40px, 8vw, 80px) 20px; }
+        .empty-icon { font-size: 80px; margin-bottom: 24px; color: #cbd5e1; }
+        .empty-state h2 { font-size: clamp(24px, 5vw, 32px); font-weight: 900; color: #1e293b; margin-bottom: 12px; }
+        .empty-state p { font-size: clamp(16px, 3vw, 20px); font-weight: 700; color: #64748b; }
+
+
+        /* SweetAlert SaaS 活力風格 */
+        .swal-saas .swal2-popup { border-radius:32px!important; box-shadow:0 24px 60px rgba(0,0,0,.15)!important; padding:40px 32px!important; border: 3px solid #E5E7EB !important;}
+        .swal-saas .swal2-title { font-family:'Nunito',sans-serif!important; font-weight:900!important; color:#1e293b!important; font-size: 28px!important;}
+        .swal-saas .swal2-confirm { background:var(--duo-blue)!important; border-bottom: 4px solid var(--duo-blue-dark) !important; border-radius:20px!important; font-weight:900!important; font-size:16px!important; padding:14px 36px!important; transition: all 0.1s !important; }
+        .swal-saas .swal2-confirm:active { transform: translateY(4px)!important; border-bottom-width: 0px!important; margin-bottom: 4px!important;}
+        
+        .swal-saas .swal2-cancel { background:#f1f5f9!important; color:#64748b!important; border-bottom: 4px solid #e2e8f0 !important; border-radius:20px!important; font-weight:900!important; font-size:16px!important; padding:14px 36px!important; transition: all 0.1s !important; }
+        .swal-saas .swal2-cancel:active { transform: translateY(4px)!important; border-bottom-width: 0px!important; margin-bottom: 4px!important;}
+        
+        .saas-input { width:100%; padding:16px 20px; border:2px solid #e2e8f0; border-radius:16px; font-family:'Nunito',sans-serif; font-weight:800; font-size:16px; outline:none; transition:.2s; margin-bottom:16px; background:#f8fafc; }
+        .saas-input:focus { border-color:var(--duo-blue); background:white; box-shadow:0 0 0 4px rgba(28,176,246,.15); }
+        .swal-wide .swal2-popup { max-width:600px!important; } /* 加寬 Modal 讓輸入更舒適 */
+
+
+        .fade-in { animation:fadeIn .4s ease-out both; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(15px)} to{opacity:1; transform:translateY(0)} }
+    </style>
+</head>
+<body>
+
+
+<div id="loading-overlay">
+    <div class="doodle-bounce" style="font-size:80px;">🦉</div>
+    <div style="font-weight:900;color:var(--duo-green);font-size:24px;letter-spacing:1px;text-transform:uppercase;">Waking up owls...</div>
+</div>
+
+
+<div class="page-content" id="main-content" style="display:none;">
+
+
+    <!-- Header 充滿活力的橫幅 -->
+    <div class="card-header">
+        <h1 class="board-title">IBSH PTA Open Hour ✨</h1>
+        <div class="board-subtitle">Meet Your Teachers</div>
+    </div>
+
+
+    <!-- ╔══════════════════════════╗
+         ║   BULLETIN BOARD         ║
+         ╚══════════════════════════╝ -->
+    <div id="bulletin-board">
+        <div class="bulletin-header">
+            <div style="display:flex;align-items:center;">
+                <div class="bulletin-dots">
+                    <div class="bulletin-dot" style="background:#ef4444;"></div>
+                    <div class="bulletin-dot" style="background:#f59e0b;"></div>
+                    <div class="bulletin-dot" style="background:#22c55e;"></div>
+                </div>
+                <span class="bulletin-title">Bulletin Board</span>
+            </div>
+            <button class="bulletin-toggle-btn" id="bulletin-toggle-btn" onclick="toggleBulletin()">
+                <i class="fas fa-chevron-up" id="bulletin-chevron"></i>
+                <span id="bulletin-toggle-text">Hide Info</span>
+            </button>
+        </div>
+
+
+        <div id="bulletin-content">
+            <div class="bulletin-body">
+                <!-- Left: Booking Window + Countdown -->
+                <div class="booking-window-panel">
+                    <div class="panel-label"><i class="fas fa-calendar-alt"></i> Booking Window</div>
+
+
+                    <div class="time-row">
+                        <div class="time-icon open-icon"><i class="fas fa-door-open" style="color:#16a34a;"></i></div>
+                        <div>
+                            <div class="time-label">Opens</div>
+                            <div class="time-value" id="display-start-time">—</div>
                         </div>
-                        <div class="w-24 h-24 rounded-full mb-4 shadow-sm">${imgHtml}</div>
-                        <h3 class="font-black text-xl text-gray-800 mb-1">${t.name}</h3>
-                        <span class="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-lg font-extrabold uppercase tracking-widest border-2 border-gray-200 mb-4">${t.subject}</span>
-                        
-                        <button onclick="admin.openManageSlotsModal('${t.id}')" class="btn-duo w-full bg-white text-duo-green border-2 border-gray-200 border-b-4 hover:border-duo-green py-3 text-sm mt-auto">
-                            <i class="far fa-clock mr-1 text-lg align-middle"></i> Manage Slots
-                        </button>
-                    </div>`;
-                });
-                
-                grid.innerHTML = html;
-                this.updateTeacherSelection();
-            },
+                    </div>
+                    <div class="time-row">
+                        <div class="time-icon close-icon"><i class="fas fa-door-closed" style="color:#dc2626;"></i></div>
+                        <div>
+                            <div class="time-label">Closes</div>
+                            <div class="time-value" id="display-end-time">—</div>
+                        </div>
+                    </div>
 
 
-            async openManageSlotsModal(tid) {
-                const t = this.data.teachers.find(x => x.id === tid);
-                Swal.fire({title: 'Loading...', customClass:{popup:'swal-saas'}, didOpen: () => Swal.showLoading()});
+                    <div id="status-badge-inline" class="status-badge-inline" style="display:none;">
+                        <i class="fas fa-circle" style="font-size:10px;"></i>
+                        <span id="status-badge-text"></span>
+                    </div>
 
 
-                try {
-                    const sRef = collection(this.db, `${this.paths.teachersCollection}/${tid}/slots`);
-                    const snap = await getDocs(sRef);
-                    this.modalSlots = snap.docs.map(d => {
-                        const data = d.data();
-                        let start = '', end = '';
-                        if(data.time && data.time.includes('~')) {
-                            [start, end] = data.time.split('~');
-                        } else if(data.time) {
-                            start = data.time; 
-                        }
-                        return { id: d.id, date: data.date || '', start: start.trim(), end: end.trim(), status: data.status };
-                    });
-                    
-                    this.modalSlots.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.start||'').localeCompare(b.start||''));
-                    this.modalTeacherId = tid;
+                    <div class="countdown-box hidden" id="countdown-box">
+                        <div class="countdown-label" id="countdown-label">Closes in</div>
+                        <div class="countdown-digits">
+                            <div class="cd-block" id="cd-days" style="display:none;">0</div>
+                            <span id="cd-days-sep" style="display:none;color:#94a3b8;font-weight:900;font-size:16px;margin-right:4px;">d</span>
+                            <div class="cd-block" id="cd-hours">00</div>
+                            <span class="cd-sep">:</span>
+                            <div class="cd-block" id="cd-minutes">00</div>
+                            <span class="cd-sep">:</span>
+                            <div class="cd-block" id="cd-seconds">00</div>
+                        </div>
+                    </div>
+                </div>
 
 
-                    await Swal.fire({
-                        title: `${t.name}'s Time Slots 🗓️`,
-                        html: `
-                            <div class="text-left bg-gray-50 p-3 md:p-5 rounded-2xl border-2 border-gray-200 mt-4 max-h-[50vh] overflow-y-auto custom-scroll" id="slots-modal-container">
-                            </div>
-                            <button onclick="admin.addSlotRow()" class="btn-duo w-full bg-white text-duo-blue border-2 border-gray-200 border-b-4 hover:border-duo-blue py-3 text-sm mt-4">
-                                <i class="fas fa-plus mr-1"></i> Add Time Slot
-                            </button>
-                        `,
-                        width: '700px',
-                        showCancelButton: true,
-                        confirmButtonText: 'Save All',
-                        confirmButtonColor: '#58CC02',
-                        customClass: { popup: 'swal-saas' },
-                        didOpen: () => {
-                            this.renderSlotRows();
-                        },
-                        preConfirm: () => {
-                            for (let i = 0; i < this.modalSlots.length; i++) {
-                                const s = this.modalSlots[i];
-                                if (!s.date || !s.start || !s.end) {
-                                    Swal.showValidationMessage('請將所有日期和時間填寫完整，或刪除空白行。');
-                                    return false;
-                                }
-                                if (s.start >= s.end) {
-                                    Swal.showValidationMessage('結束時間必須晚於開始時間！');
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    }).then(async (result) => {
-                        if (result.isConfirmed) {
-                            await this.saveManagedSlots();
-                        }
-                    });
-                } catch(e) {
-                    Swal.fire({title:'Error', text:'Failed to load slots.', icon:'error', customClass:{popup:'swal-saas'}});
+                <!-- Right: Announcements -->
+                <div class="announcement-panel">
+                    <div class="panel-label"><i class="fas fa-bullhorn"></i> Announcements</div>
+                    <div id="announcement-items">
+                        <div class="announcement-empty" id="announcement-empty">
+                            <i class="fas fa-inbox" style="font-size:28px;"></i>
+                            <span>No announcements at this time</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Controls (狀態與管理按鈕) -->
+    <div class="controls-bar">
+        <div id="status-pill" class="status-pill status-checking">
+            <i class="fas fa-circle-notch fa-spin"></i> Checking...
+        </div>
+        <button class="manage-btn" id="btn-manage" style="background:var(--duo-green); border-bottom-color:var(--duo-green-dark);">
+            <i class="fas fa-ticket-alt"></i> My Bookings
+        </button>
+    </div>
+
+
+    <!-- Main Board 寬敞舒適主區塊 -->
+    <div class="board">
+        <div class="board-toolbar" id="board-toolbar">
+            <!-- 升級版三步驟進度條 -->
+            <div class="progress-steps">
+                <span class="step active" id="step-1-nav"><i class="fas fa-th-large" style="margin-right:8px;"></i>1. Department</span>
+                <i class="fas fa-chevron-right" style="color:#cbd5e1;font-size:14px;" id="nav-arrow-1"></i>
+                <span class="step" id="step-2-nav">2. Teacher</span>
+                <i class="fas fa-chevron-right" style="color:#cbd5e1;font-size:14px;display:none;" id="nav-arrow-2"></i>
+                <span class="step" id="step-3-nav" style="display:none;">3. Select Time</span>
+            </div>
+            <div class="search-box">
+                <input type="text" id="search-input" class="search-input" placeholder="Search teacher or subject...">
+            </div>
+        </div>
+        
+        <div id="empty-state" class="empty-state" style="display:none;">
+            <i class="fas fa-calendar-times empty-icon"></i>
+            <h2 id="empty-state-title">Schedule Closed</h2>
+            <p id="empty-state-text">Please check back later.</p>
+        </div>
+        
+        <!-- Step 1: 科目列表 -->
+        <div id="step-subject" style="display:none;">
+            <div class="subjects-grid" id="subject-list"></div>
+        </div>
+        
+        <!-- Step 2: 該科目的老師列表 (無時間按鈕) -->
+        <div id="step-teacher" style="display:none;">
+            <div style="margin-bottom:32px;">
+                <button class="back-btn" id="btn-back-to-subject">
+                    <i class="fas fa-arrow-left"></i> Back to Departments
+                </button>
+            </div>
+            <!-- 使用 grid 排版老師清單 -->
+            <div class="subjects-grid" id="teacher-list"></div>
+        </div>
+
+
+        <!-- Step 3: 點進去老師後的時間表與簡歷 -->
+        <div id="step-time" style="display:none;">
+            <div style="margin-bottom:32px;">
+                <button class="back-btn" id="btn-back-to-teachers">
+                    <i class="fas fa-arrow-left"></i> Back to Teachers
+                </button>
+            </div>
+            <div id="single-teacher-container"></div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+function toggleBulletin() {
+    const content = document.getElementById('bulletin-content');
+    const chevron = document.getElementById('bulletin-chevron');
+    const text    = document.getElementById('bulletin-toggle-text');
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? '' : 'none';
+    chevron.className = isHidden ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    text.innerText    = isHidden ? 'Hide Info' : 'Show Info';
+}
+</script>
+
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyA-IZxVbMBc8_2_FQEmAgnzPYrR_Q-QPV4",
+        authDomain: "ibsh-pta.firebaseapp.com", projectId: "ibsh-pta",
+        storageBucket: "ibsh-pta.firebasestorage.app",
+        messagingSenderId: "330845985530",
+        appId: "1:330845985530:web:eed4ffc5e4fd5f036e4743"
+    };
+
+
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwL_XQFaoWEsUIo6DEdVSNUrZur5RXYIOlXw5Zlq4MMh9qwxyKDskZLKkZgx5utYUpN/exec";
+
+
+    function escapeHtml(t) {
+        if (!t) return "";
+        return t.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    }
+    
+    function getSubjectIcon(sub) {
+        const s = (sub||"").toLowerCase();
+        if (s.includes('math')) return '🧮';
+        if (s.includes('english')) return '📚';
+        if (s.includes('science')||s.includes('physics')||s.includes('chemistry')) return '🔬';
+        if (s.includes('middle school humanities')) return '🏫';
+        if (s.includes('a&t')) return '🎵🎨';
+        if (s.includes('pe')||s.includes('physical')) return '⚽';
+        if (s.includes('wss')||s.includes('social')) return '🌍';
+        if (s.includes('chinese')) return '🖌️';
+        if (s.includes('css')) return '📜';
+        if (s.includes('elementary')) return '🛝';
+        return '🏫';
+    }
+
+
+    const getMascotSVG = (id) => { 
+        const animals = ['🦊', '🐱', '🐼', '🐨', '🐶', '🐰', '🐯', '🐻', '🐮', '🐷', '🐸', '🐵', '🦄', '🦖', '🐙', '🦉'];
+        const colors = ['#FFD1DC', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF', '#FFDFD3', '#F4F4F8', '#E2F0CB', '#FFB7B2', '#C7CEEA', '#B5EAD7', '#FF9CEE', '#B2FBA5', '#84D8FF', '#DDF4C5'];
+        const borders = ['#FF9EBB', '#FFB56B', '#E5E56B', '#6BE58B', '#6BA4FF', '#CA6BFF', '#FF9E8B', '#D1D1E0', '#B0D878', '#FF7A70', '#8F9DE3', '#72D1AC', '#FF5CE5', '#60E540', '#40B8FF', '#58CC02'];
+        const i = id % animals.length;
+        return `<svg viewBox="0 0 100 100" style="width:100%;height:100%;"><circle cx="50" cy="50" r="46" fill="${colors[i]}" stroke="${borders[i]}" stroke-width="8"/><text x="50" y="68" font-size="45" text-anchor="middle">${animals[i]}</text></svg>`; 
+    };
+
+
+    async function callGAS(payload) {
+        try { const r=await fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(payload)}); return await r.json(); }
+        catch(e) { return {ok:false}; }
+    }
+    function formatDateTime(str) {
+        if (!str) return '—';
+        try { return new Date(str).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}); }
+        catch { return str; }
+    }
+
+
+    function renderBulletin({ start, end, announcement }) {
+        document.getElementById('display-start-time').innerText = formatDateTime(start);
+        document.getElementById('display-end-time').innerText   = formatDateTime(end);
+
+
+        const items = document.getElementById('announcement-items');
+        const empty = document.getElementById('announcement-empty');
+        if (announcement && announcement.trim()) {
+            empty.style.display = 'none';
+            const lines = announcement.split('\n').filter(l => l.trim());
+            items.innerHTML = lines.map(l => `
+                <div class="announcement-item">
+                    <span class="ann-icon">📢</span>
+                    <span class="ann-text">${escapeHtml(l.trim())}</span>
+                </div>`).join('') + `<div id="announcement-empty" style="display:none;"></div>`;
+        }
+    }
+
+
+    const app = {
+        db: null, auth: null,
+        paths: {
+            teachersCollection: 'artifacts/ibsh-pta-v2/public/data/teachers',
+            bookings: 'artifacts/ibsh-pta-v2/private_bookings',
+            config: 'artifacts/ibsh-pta-v2/public/system_settings',
+            verifyCodes: 'artifacts/ibsh-pta-v2/verify_codes'
+        },
+        data: { teachers: [] },
+        currentView: 'subject', currentSubject: null, currentTeacher: null,
+        lastBookingTime: 0, isOpen: false, countdownTimer: null, slotSnapshotUnsubscribe: null,
+
+
+        init() {
+            const fa = initializeApp(firebaseConfig);
+            this.db = getFirestore(fa); this.auth = getAuth(fa);
+            
+            // 綁定返回按鈕事件
+            document.getElementById('btn-back-to-subject').addEventListener('click', () => this.showSubjects());
+            document.getElementById('btn-back-to-teachers').addEventListener('click', () => {
+                if(document.getElementById('search-input').value.trim()) {
+                    this.handleSearch(document.getElementById('search-input').value);
+                } else if(this.currentSubject) {
+                    this.selectSubject(this.currentSubject);
+                } else {
+                    this.showSubjects();
                 }
-            },
+            });
+            
+            document.getElementById('btn-manage').addEventListener('click', () => this.showManageFlow());
+            document.getElementById('search-input').addEventListener('input', e => this.handleSearch(e.target.value));
+            
+            onAuthStateChanged(this.auth, user => {
+                if (user) this.checkSystemConfig();
+                else signInAnonymously(this.auth).catch(() => {
+                    document.getElementById('loading-overlay').innerHTML = `<div style="background:white;padding:40px;border-radius:32px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.1);"><div style="font-size:64px;color:#ef4444;margin-bottom:20px;"><i class="fas fa-exclamation-circle"></i></div><h2 style="font-weight:900;font-size:28px;margin-bottom:20px;">Connection Error</h2><button onclick="location.reload()" style="background:#1e293b;color:white;padding:16px 40px;border-radius:30px;font-weight:900;font-size:16px;border:none;cursor:pointer;">Retry</button></div>`;
+                });
+            });
+        },
 
 
-            renderSlotRows() {
-                const container = document.getElementById('slots-modal-container');
-                if (!container) return;
-                if (this.modalSlots.length === 0) {
-                    container.innerHTML = '<div class="text-center text-gray-400 font-bold py-6 border-2 border-dashed border-gray-300 rounded-xl bg-white">No slots yet. Click + to add!</div>';
+        async checkSystemConfig() {
+            try {
+                const snap = await getDoc(doc(this.db, this.paths.config));
+                if (snap.exists()) {
+                    const { start, end, announcement, gasUrl } = snap.data();
+                    if (gasUrl) window._GAS_URL = gasUrl;
+                    renderBulletin({ start, end, announcement });
+                    const now = new Date(), s = new Date(start), e = new Date(end);
+                    if (now >= s && now <= e) {
+                        this.isOpen = true;
+                        this.setStatus('open');
+                        this.setBadge('open','Booking Open Now');
+                        this.startCountdown(e, 'close');
+                        this.loadSchedule();
+                    } else if (now < s) {
+                        this.setStatus('soon');
+                        this.setBadge('soon','Opening Soon');
+                        this.startCountdown(s, 'open');
+                        this.showEmpty("Schedule Opens Soon", `Bookings open on ${formatDateTime(start)}`);
+                    } else {
+                        this.setStatus('closed');
+                        this.setBadge('closed','Booking Closed');
+                        this.showEmpty("Schedule Closed", "The booking period has ended. Thank you!");
+                    }
+                } else {
+                    renderBulletin({});
+                    this.isOpen = true; this.setStatus('open'); this.setBadge('open','Booking Open'); this.loadSchedule();
+                }
+            } catch {
+                renderBulletin({});
+                this.isOpen = true; this.setStatus('open'); this.setBadge('open','Booking Open'); this.loadSchedule();
+            }
+        },
+
+
+        setStatus(state) {
+            const p = document.getElementById('status-pill');
+            const map = { open:['status-open','<i class="fas fa-door-open"></i> Booking Open'], closed:['status-closed','<i class="fas fa-lock"></i> Closed'], soon:['status-soon','<i class="fas fa-clock"></i> Opening Soon'] };
+            p.className = `status-pill ${map[state][0]}`; p.innerHTML = map[state][1];
+        },
+        setBadge(state, text) {
+            const b = document.getElementById('status-badge-inline');
+            b.style.display = 'inline-flex';
+            b.className = `status-badge-inline badge-${state}`;
+            document.getElementById('status-badge-text').innerText = text;
+        },
+
+
+        startCountdown(target, mode) {
+            const box   = document.getElementById('countdown-box');
+            const label = document.getElementById('countdown-label');
+            box.classList.remove('hidden');
+            label.innerText = mode === 'close' ? 'Closes in' : 'Opens in';
+            if (this.countdownTimer) clearInterval(this.countdownTimer);
+            const tick = () => {
+                const diff = target - new Date();
+                if (diff <= 0) {
+                    clearInterval(this.countdownTimer); box.classList.add('hidden');
+                    if (mode === 'close') { this.setStatus('closed'); this.setBadge('closed','Booking Closed'); this.showEmpty("Booking Closed","The booking window has just ended."); }
+                    else location.reload();
                     return;
                 }
-
-
-                let html = '';
-                this.modalSlots.forEach((slot, idx) => {
-                    const isBooked = slot.status === 'booked';
-                    const disabledAttr = isBooked ? 'disabled' : '';
-                    const bgClass = isBooked ? 'bg-gray-200 opacity-60' : 'bg-white hover:-translate-y-1';
-
-
-                    html += `
-                    <div class="flex flex-wrap md:flex-nowrap items-center justify-between gap-3 mb-3 p-3 rounded-xl border-2 border-gray-200 ${bgClass} shadow-sm transition">
-                        <div class="flex-1 w-full md:w-auto">
-                            <input type="date" value="${slot.date}" onchange="admin.updateSlotRow(${idx}, 'date', this.value)" class="w-full p-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:border-duo-blue outline-none transition" ${disabledAttr}>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="time" value="${slot.start}" onchange="admin.updateSlotRow(${idx}, 'start', this.value)" class="w-28 p-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:border-duo-blue outline-none text-center transition" ${disabledAttr}>
-                            <span class="text-gray-400 font-black">~</span>
-                            <input type="time" value="${slot.end}" onchange="admin.updateSlotRow(${idx}, 'end', this.value)" class="w-28 p-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-sm font-bold focus:bg-white focus:border-duo-blue outline-none text-center transition" ${disabledAttr}>
-                        </div>
-                        <div class="ml-auto flex items-center justify-end min-w-[50px]">
-                            ${isBooked 
-                                ? `<span class="text-[10px] uppercase font-extrabold px-2 py-1 rounded-lg tracking-widest bg-red-100 text-duo-red border border-red-200">Booked</span>`
-                                : `<button onclick="admin.removeSlotRow(${idx})" class="w-8 h-8 rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-duo-red hover:border-duo-red border-2 border-transparent transition flex items-center justify-center"><i class="fas fa-times"></i></button>`
-                            }
-                        </div>
-                    </div>`;
-                });
-                container.innerHTML = html;
-            },
-
-
-            addSlotRow() {
-                let lastDate = '';
-                if (this.modalSlots.length > 0) {
-                    lastDate = this.modalSlots[this.modalSlots.length - 1].date;
-                } else {
-                    lastDate = document.getElementById('batch-date')?.value || new Date().toISOString().split('T')[0];
-                }
-                
-                this.modalSlots.push({
-                    id: null,
-                    date: lastDate,
-                    start: '',
-                    end: '',
-                    status: 'available'
-                });
-                this.renderSlotRows();
-                
-                setTimeout(() => {
-                    const container = document.getElementById('slots-modal-container');
-                    if (container) container.scrollTop = container.scrollHeight;
-                }, 50);
-            },
-
-
-            updateSlotRow(idx, field, value) {
-                if (this.modalSlots[idx]) {
-                    this.modalSlots[idx][field] = value;
-                }
-            },
-
-
-            removeSlotRow(idx) {
-                if (this.modalSlots[idx].status === 'booked') return;
-                this.modalSlots.splice(idx, 1);
-                this.renderSlotRows();
-            },
-
-
-            async saveManagedSlots() {
-                Swal.fire({title:'Saving...', customClass:{popup:'swal-saas'}, didOpen:()=>Swal.showLoading()});
-                try {
-                    const sRef = collection(this.db, `${this.paths.teachersCollection}/${this.modalTeacherId}/slots`);
-                    const existSnap = await getDocs(sRef);
-                    
-                    const batch = writeBatch(this.db);
-                    const modalSlotIds = this.modalSlots.map(s => s.id).filter(id => id !== null);
-                    
-                    existSnap.docs.forEach(d => {
-                        if (!modalSlotIds.includes(d.id)) {
-                            if (d.data().status !== 'booked') {
-                                batch.delete(d.ref);
-                            }
-                        }
-                    });
-                    
-                    this.modalSlots.forEach(s => {
-                        if (s.status === 'booked') return;
-
-
-                        const timeStr = `${s.start}~${s.end}`;
-                        if (s.id) {
-                            const dRef = doc(this.db, `${this.paths.teachersCollection}/${this.modalTeacherId}/slots/${s.id}`);
-                            batch.update(dRef, { date: s.date, time: timeStr });
-                        } else {
-                            const dRef = doc(sRef);
-                            batch.set(dRef, { date: s.date, time: timeStr, status: 'available' });
-                        }
-                    });
-                    
-                    await batch.commit();
-                    Swal.fire({title:'Saved!', text:'Time slots updated successfully.', icon:'success', timer: 1500, showConfirmButton: false, customClass:{popup:'swal-saas'}});
-                } catch(e) {
-                    Swal.fire({title:'Error', text:e.message, icon:'error', customClass:{popup:'swal-saas'}});
-                }
-            },
-
-
-            updateTeacherSelection() {
-                const checkboxes = document.querySelectorAll('.teacher-checkbox');
-                const checkedBoxes = document.querySelectorAll('.teacher-checkbox:checked');
-                const selectAllCb = document.getElementById('select-all-teachers');
-                const bulkDeleteBtn = document.getElementById('btn-bulk-delete');
-                const bulkDeleteCount = document.getElementById('bulk-delete-count');
-
-
-                if (selectAllCb) {
-                    selectAllCb.checked = (checkboxes.length > 0 && checkboxes.length === checkedBoxes.length);
-                }
-
-
-                if (checkedBoxes.length > 0) {
-                    bulkDeleteBtn?.classList.remove('hidden');
-                    if (bulkDeleteCount) bulkDeleteCount.innerText = checkedBoxes.length;
-                } else {
-                    bulkDeleteBtn?.classList.add('hidden');
-                }
-            },
-
-
-            toggleAllTeachers(checked) {
-                document.querySelectorAll('.teacher-checkbox').forEach(cb => cb.checked = checked);
-                this.updateTeacherSelection();
-            },
-
-
-            async bulkDeleteTeachers() {
-                const selected = Array.from(document.querySelectorAll('.teacher-checkbox:checked')).map(c => c.value);
-                if (selected.length === 0) return;
-
-
-                const res = await Swal.fire({
-                    title: 'Are you sure?',
-                    text: `This will delete ${selected.length} teachers AND all their time slots!`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#FF4B4B',
-                    confirmButtonText: 'Yes, delete all!',
-                    customClass: { popup: 'swal-saas' }
-                });
-
-
-                if (res.isConfirmed) {
-                    Swal.fire({title:'Deleting...', customClass:{popup:'swal-saas'}, didOpen:()=>Swal.showLoading()});
-                    try {
-                        const chunks = [];
-                        let currentBatch = writeBatch(this.db);
-                        let currentOpCount = 0;
-
-
-                        for (const id of selected) {
-                            const slotsRef = collection(this.db, `${this.paths.teachersCollection}/${id}/slots`);
-                            const slotsSnap = await getDocs(slotsRef);
-
-
-                            slotsSnap.forEach(d => {
-                                currentBatch.delete(d.ref);
-                                currentOpCount++;
-                                if (currentOpCount >= 490) {
-                                    chunks.push(currentBatch.commit());
-                                    currentBatch = writeBatch(this.db);
-                                    currentOpCount = 0;
-                                }
-                            });
-
-
-                            currentBatch.delete(doc(this.db, this.paths.teachersCollection, id));
-                            currentOpCount++;
-                            if (currentOpCount >= 490) {
-                                chunks.push(currentBatch.commit());
-                                currentBatch = writeBatch(this.db);
-                                currentOpCount = 0;
-                            }
-                        }
-
-
-                        if (currentOpCount > 0) chunks.push(currentBatch.commit());
-                        await Promise.all(chunks);
-
-
-                        Swal.fire({title:'Gone!', text:`${selected.length} teachers deleted.`, icon:'success', customClass:{popup:'swal-saas'}});
-                        this.updateTeacherSelection();
-                    } catch(e) {
-                        Swal.fire({title:'Error', text:e.message, icon:'error', customClass:{popup:'swal-saas'}});
-                    }
-                }
-            },
-
-
-            downloadTeacherTemplate() {
-                const ws = XLSX.utils.json_to_sheet([
-                    { Name: "Mr. Owl", Subject: "Science, Math", Location: "Room 101", Email: "owl@ibsh.tw" },
-                    { Name: "Ms. Fox", Subject: "English", Location: "Room 102", Email: "fox@ibsh.tw" }
-                ]);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "TeachersTemplate");
-                XLSX.writeFile(wb, "Teacher_Import_Template.xlsx");
-            },
-
-
-            async importTeachersBatch() {
-                const { value: file } = await Swal.fire({
-                    title: 'Batch Import 📝',
-                    html: `
-                        <div class="text-left space-y-4 p-2">
-                            <p class="text-sm text-gray-500 font-bold">1. Download the template and fill in your teachers. (Use comma to separate multiple subjects)</p>
-                            <button onclick="admin.downloadTeacherTemplate()" class="btn-duo w-full bg-white text-duo-green border-2 border-gray-200 border-b-4 hover:border-duo-green py-3 text-sm">
-                                <i class="fas fa-download mr-2"></i> Download Template
-                            </button>
-                            <div class="border-t-2 border-dashed border-gray-200 my-4"></div>
-                            <p class="text-sm text-gray-500 font-bold">2. Upload the filled Excel file.</p>
-                            <input type="file" id="teacher-import-file" class="input-duo w-full p-3 text-sm" accept=".xlsx, .xls, .csv">
-                        </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: 'Upload & Process',
-                    confirmButtonColor: '#1CB0F6',
-                    customClass: { popup: 'swal-saas' },
-                    preConfirm: () => {
-                        const fileInput = document.getElementById('teacher-import-file');
-                        if (!fileInput.files || fileInput.files.length === 0) {
-                            Swal.showValidationMessage('Please select a file first!');
-                            return null;
-                        }
-                        return fileInput.files[0];
-                    }
-                });
-
-
-                if (!file) return;
-
-
-                Swal.fire({title: 'Reading File...', customClass: {popup: 'swal-saas'}, didOpen: () => Swal.showLoading()});
-
-
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, {type: 'array'});
-                        const firstSheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[firstSheetName];
-                        const json = XLSX.utils.sheet_to_json(worksheet);
-
-
-                        if (json.length === 0) throw new Error("The Excel file is empty!");
-
-
-                        let successCount = 0;
-                        const batch = writeBatch(this.db);
-
-
-                        for (let row of json) {
-                            const rowData = {};
-                            for (let key in row) rowData[key.toLowerCase().trim()] = row[key];
-
-
-                            const name = rowData.name;
-                            let subject = rowData.subject;
-                            
-                            if (!name || !subject) continue; 
-                            subject = subject.toString().trim();
-
-
-                            const newTeacherRef = doc(collection(this.db, this.paths.teachersCollection));
-                            batch.set(newTeacherRef, {
-                                name: name.toString().trim(),
-                                subject: subject,
-                                location: (rowData.location || '').toString().trim(),
-                                email: (rowData.email || '').toString().trim(),
-                                note: (rowData.note || '').toString().trim(),
-                                mascot: Math.floor(Math.random() * 16),
-                                image: ''
-                            });
-                            successCount++;
-                        }
-                        
-                        if (successCount > 0) {
-                            await batch.commit();
-                            Swal.fire({
-                                title: 'Success! 🎉',
-                                text: `Successfully added ${successCount} teachers!`,
-                                icon: 'success',
-                                customClass: {popup: 'swal-saas'}
-                            });
-                        } else {
-                            Swal.fire({title: 'Hmm...', text: 'No valid teachers found. Check the template columns.', icon: 'warning', customClass: {popup: 'swal-saas'}});
-                        }
-                    } catch (err) {
-                        Swal.fire({title: 'Error', text: err.message || 'Failed to read file.', icon: 'error', customClass: {popup: 'swal-saas'}});
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            },
-
-
-            async openTeacherModal(editId=null) {
-                const isEdit = !!editId; const t = isEdit ? this.data.teachers.find(x=>x.id===editId) : {};
-                
-                // 抓取現有的所有科目提供給 datalist
-                let allSubj = [];
-                this.data.teachers.forEach(teacher => {
-                    if(teacher.subject) teacher.subject.split(',').forEach(s => allSubj.push(s.trim()));
-                });
-                const allAvailableSubjects = [...new Set([...this.subjects, ...allSubj])].sort();
-                const opts = allAvailableSubjects.map(s=>`<option value="${s}">`).join('');
-                
-                const animalOptionsHtml = Array.from({length: 16}, (_, i) => 
-                    `<div class="w-16 h-16 flex-shrink-0 cursor-pointer border-4 border-transparent hover:border-gray-200 rounded-2xl mascot-select transition ${(!t.image&&(t.mascot||0)==i)?'selected !border-duo-blue':''}" onclick="window.selectMascot(this,${i})">${getMascotSVG(i)}</div>`
-                ).join('');
-
-
-                await Swal.fire({
-                    title: isEdit ? 'Edit Profile ✏️' : 'New Teacher 🌟',
-                    html: `<div class="space-y-6 text-left p-2">
-                        <div class="flex flex-col items-center justify-center mb-6">
-                            <div class="w-32 h-32 rounded-[2rem] bg-gray-50 border-4 border-gray-200 overflow-hidden relative group cursor-pointer shadow-sm hover:border-duo-blue transition" onclick="document.getElementById('swal-file').click()">
-                                <img id="preview-img" src="${t.image||''}" class="w-full h-full object-cover ${t.image?'':'hidden'}">
-                                <div id="preview-mascot" class="w-full h-full p-2 ${t.image?'hidden':''}">${getMascotSVG(t.mascot||0)}</div>
-                                <div class="absolute inset-0 bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition font-black text-lg backdrop-blur-sm">Upload</div>
-                            </div>
-                            <input type="file" id="swal-file" class="hidden" accept="image/*" onchange="window.handleFileSelect(this)">
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div><label class="text-xs font-extrabold text-gray-400 mb-2 block uppercase tracking-widest">Name</label><input id="swal-name" class="input-duo w-full p-4" value="${t.name||''}" placeholder="Mr. Owl"></div>
-                            <div>
-                                <label class="text-xs font-extrabold text-gray-400 mb-2 flex items-center justify-between uppercase tracking-widest">
-                                    <span>Subject</span>
-                                    <span class="normal-case text-[10px] text-duo-blue tracking-normal">可用逗號分隔多科</span>
-                                </label>
-                                <input id="swal-subject" list="subject-list" class="input-duo w-full p-4" value="${t.subject||''}" placeholder="e.g. Math, Science">
-                                <datalist id="subject-list">${opts}</datalist>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div><label class="text-xs font-extrabold text-gray-400 mb-2 block uppercase tracking-widest">Location</label><input id="swal-location" class="input-duo w-full p-4" value="${t.location||''}" placeholder="Room 101"></div>
-                            <div><label class="text-xs font-extrabold text-gray-400 mb-2 block uppercase tracking-widest">Email</label><input id="swal-email" type="email" class="input-duo w-full p-4" value="${t.email||''}" placeholder="owl@ibsh.tw"></div>
-                        </div>
-                        <div class="mt-4">
-                            <label class="text-xs font-extrabold text-gray-400 mb-2 block uppercase tracking-widest">Note / Intro</label>
-                            <textarea id="swal-note" rows="2" class="input-duo w-full p-4" placeholder="Brief introduction or notes...">${t.note||''}</textarea>
-                        </div>
-                        <div class="mt-4">
-                            <label class="text-xs font-extrabold text-gray-400 mb-2 block uppercase tracking-widest">No Slots Message (Optional)</label>
-                            <p class="text-[10px] font-bold text-gray-400 mb-2">Message to show when there are no available time slots.</p>
-                            <textarea id="swal-no-slots-msg" rows="2" class="input-duo w-full p-4" placeholder="e.g., I am fully booked. Please email me directly.">${t.noSlotsMessage||''}</textarea>
-                        </div>
-                        <div class="mt-6 pt-6 border-t-2 border-gray-100 bg-gray-50 -mx-6 px-6 pb-4 rounded-b-2xl">
-                            <label class="text-xs font-extrabold text-gray-400 mb-4 block uppercase tracking-widest pt-2">Choose an Avatar</label>
-                            <div class="flex gap-4 overflow-x-auto pb-4 custom-scroll px-1" id="mascot-selector">${animalOptionsHtml}</div>
-                            <input type="hidden" id="swal-mascot" value="${t.mascot||0}">
-                            <input type="hidden" id="swal-image-data" value="${t.image||''}">
-                        </div>
-                    </div>`,
-                    width: '700px',
-                    customClass: { popup: 'swal-saas !p-0 overflow-hidden' },
-                    showCancelButton: true, confirmButtonText: 'Save Profile', cancelButtonText: 'Cancel',
-                    didOpen: () => {
-                        window.handleFileSelect = async (inp) => { if(inp.files[0]){const b64=await compressImage(inp.files[0]); document.getElementById('preview-img').src=b64; document.getElementById('preview-img').classList.remove('hidden'); document.getElementById('preview-mascot').classList.add('hidden'); document.getElementById('swal-image-data').value=b64; document.querySelectorAll('.mascot-select').forEach(e=>e.classList.remove('selected','!border-duo-blue')); } };
-                        window.selectMascot = (el,id) => { document.querySelectorAll('.mascot-select').forEach(e=>e.classList.remove('selected','!border-duo-blue')); el.classList.add('selected','!border-duo-blue'); document.getElementById('swal-mascot').value=id; document.getElementById('swal-image-data').value=''; document.getElementById('preview-img').classList.add('hidden'); document.getElementById('preview-mascot').classList.remove('hidden'); document.getElementById('preview-mascot').innerHTML=getMascotSVG(id); };
-                    },
-                    preConfirm: () => { const n=document.getElementById('swal-name').value; const s=document.getElementById('swal-subject').value; if(!n||!s) return Swal.showValidationMessage('Name and Subject are required!'); return {name:n,subject:s,location:document.getElementById('swal-location').value,email:document.getElementById('swal-email').value,note:document.getElementById('swal-note').value,noSlotsMessage:document.getElementById('swal-no-slots-msg').value,mascot:parseInt(document.getElementById('swal-mascot').value),image:document.getElementById('swal-image-data').value}; }
-                }).then(async r => { if(r.isConfirmed){ try{ if(isEdit) await updateDoc(doc(this.db,this.paths.teachersCollection,editId),r.value); else await addDoc(collection(this.db,this.paths.teachersCollection),r.value); Swal.fire({title:'Awesome!',text:'Profile saved successfully.',icon:'success',customClass:{popup:'swal-saas'}}); }catch(e){Swal.fire({title:'Error',text:'Permission Denied',icon:'error',customClass:{popup:'swal-saas'}});} } });
-            },
-
-
-            async deleteTeacher(id) {
-                const res = await Swal.fire({title:'Are you sure?',text:'This wipes the teacher AND all their slots!',icon:'warning',showCancelButton:true,confirmButtonColor:'#FF4B4B',confirmButtonText:'Yes, delete!',customClass:{popup:'swal-saas'}});
-                if (res.isConfirmed) { Swal.showLoading(); try{ const slotsRef=collection(this.db,`${this.paths.teachersCollection}/${id}/slots`); const slotsSnap=await getDocs(slotsRef); const batch=writeBatch(this.db); slotsSnap.forEach(d=>batch.delete(d.ref)); batch.delete(doc(this.db,this.paths.teachersCollection,id)); await batch.commit(); Swal.fire({title:'Gone!',text:'Teacher deleted.',icon:'success',customClass:{popup:'swal-saas'}}); }catch(e){Swal.fire({title:'Error',text:e.message,icon:'error',customClass:{popup:'swal-saas'}});} }
-            },
-
-
-            async loadBookings() {
-                let q = query(collection(this.db, this.paths.bookings));
-                if (this.userRole==='teacher' && this.currentUserEmail) { q=query(collection(this.db,this.paths.bookings),where("teacherEmail","==",this.currentUserEmail)); }
-                onSnapshot(q, s => { this.data.bookings=s.docs.map(d=>({id:d.id,...d.data()})); this.renderBookings(); });
-            },
-
-
-            refreshBookings() { this.loadBookings(); },
-
-
-            renderBookings() {
-                const container = document.getElementById('bookings-table-body');
-                container.innerHTML = '';
-                const list = [...this.data.bookings].sort((a,b)=>(a.slotDate||'').localeCompare(b.slotDate||'')||a.slotTime.localeCompare(b.slotTime));
-                
-                if (list.length===0) { 
-                    document.getElementById('bookings-empty').classList.remove('hidden'); 
-                    return; 
-                }
-                document.getElementById('bookings-empty').classList.add('hidden');
-                
-                list.forEach(b => {
-                    let messageHtml = '';
-                    if (b.message) {
-                        const escapedMsg = b.message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                        if (escapedMsg.length > 50) {
-                            messageHtml = `
-                                <div class="mt-3 bg-[#FFF4CC] border-2 border-[#FFC800] p-3 rounded-xl w-full">
-                                    <p class="text-[10px] font-black uppercase text-[#D9A100] tracking-widest mb-1">
-                                        <i class="fas fa-comment-dots"></i> Message from Parent
-                                    </p>
-                                    <div id="msg-${b.id}" class="text-sm font-bold text-gray-800 whitespace-pre-wrap line-clamp-2">${escapedMsg}</div>
-                                    <button onclick="const msg=document.getElementById('msg-${b.id}'); if(msg.classList.contains('line-clamp-2')){msg.classList.remove('line-clamp-2');this.innerText='Show Less 🔼';}else{msg.classList.add('line-clamp-2');this.innerText='Read More 🔽';}" class="text-[11px] font-black text-duo-blue hover:text-duo-blue-dark mt-2 transition uppercase tracking-wider">Read More 🔽</button>
-                                </div>
-                            `;
-                        } else {
-                            messageHtml = `
-                                <div class="mt-3 bg-[#FFF4CC] border-2 border-[#FFC800] p-3 rounded-xl w-full">
-                                    <p class="text-[10px] font-black uppercase text-[#D9A100] tracking-widest mb-1">
-                                        <i class="fas fa-comment-dots"></i> Message from Parent
-                                    </p>
-                                    <div class="text-sm font-bold text-gray-800 whitespace-pre-wrap">${escapedMsg}</div>
-                                </div>
-                            `;
-                        }
-                    }
-
-
-                    container.innerHTML += `
-                        <div class="card-duo p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 bg-white hover:-translate-y-1 transition-transform">
-                            <div class="flex items-start gap-5 w-full md:w-auto flex-1">
-                                <div class="bg-[#DDF4C5] text-duo-green-dark rounded-2xl p-3 flex flex-col items-center justify-center min-w-[90px] border-2 border-duo-green shadow-sm mt-1">
-                                    <span class="text-xs font-black uppercase tracking-widest">${b.slotDate || 'Date'}</span>
-                                    <span class="text-2xl font-black mt-1 tracking-tight">${b.slotTime}</span>
-                                </div>
-                                <div class="flex-1 w-full">
-                                    <h3 class="font-black text-xl text-gray-800">${b.student}</h3>
-                                    <p class="text-sm text-gray-500 font-bold mt-1">
-                                        Parent: <span class="text-gray-700">${b.parent}</span> 
-                                        <span class="mx-2 text-gray-300">|</span> 
-                                        <span class="text-duo-blue font-black">${b.teacherName}</span>
-                                    </p>
-                                    <a href="mailto:${b.email}" class="inline-flex items-center gap-1 text-xs font-bold text-gray-400 hover:text-duo-blue mt-2 transition">
-                                        <i class="fas fa-envelope"></i> ${b.email}
-                                    </a>
-                                    ${messageHtml}
-                                </div>
-                            </div>
-                            <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0 pt-4 md:pt-0 border-t-2 border-gray-100 md:border-t-0 items-center">
-                                ${this.userRole==='admin' ? `
-                                <button onclick="admin.cancelBooking('${b.id}','${b.teacherId}','${b.slotId}')" class="btn-duo flex-1 md:flex-none bg-white text-duo-red border-2 border-gray-200 border-b-4 hover:border-duo-red px-4 py-2 text-sm">
-                                    Cancel
-                                </button>` : ''}
-                            </div>
-                        </div>`;
-                });
-            },
-
-
-            async cancelBooking(bid, tid, sid) {
-                const res = await Swal.fire({title:'Cancel this?',text:'The slot will be open for others to book.',icon:'warning',showCancelButton:true,confirmButtonColor:'#FF4B4B',confirmButtonText:'Yes, cancel it',customClass:{popup:'swal-saas'}});
-                if (res.isConfirmed) {
-                    try {
-                        const b = this.data.bookings.find(x=>x.id===bid);
-                        const batch = writeBatch(this.db);
-                        batch.delete(doc(this.db,this.paths.bookings,bid));
-                        batch.update(doc(this.db,`${this.paths.teachersCollection}/${tid}/slots/${sid}`),{status:'available',bookingRef:null});
-                        await batch.commit();
-                        if (b) callGAS({action:"sendCancellation",email:b.email,parent:b.parent,student:b.student,teacherName:b.teacherName,slotTime:b.slotTime,slotDate:b.slotDate||''});
-                        Swal.fire({title:'Done!',text:'Slot is free again.',icon:'success',customClass:{popup:'swal-saas'}});
-                    } catch(e) { Swal.fire({title:'Error',text:'Failed to cancel.',icon:'error',customClass:{popup:'swal-saas'}}); }
-                }
-            },
-
-
-            async saveSettings() {
-                const start = document.getElementById('setting-start').value;
-                const end = document.getElementById('setting-end').value;
-                const announcement = document.getElementById('setting-announcement').value;
-                const backendNotice = document.getElementById('setting-backend-notice').value;
-                const gasUrl = document.getElementById('setting-gas-url').value.trim();
-
-
-                if (!start||!end) return Swal.fire({title:'Oops',text:'Don\'t forget the times!',icon:'error',customClass:{popup:'swal-saas'}});
-                try {
-                    await setDoc(doc(this.db, this.paths.config), { start, end, announcement, backendNotice, gasUrl });
-                    this.gasUrl = gasUrl;
-                    Swal.fire({title:'Saved!',text:'Everything looks good.',icon:'success',customClass:{popup:'swal-saas'}});
-                } catch(e) { Swal.fire({title:'Error',text:'Failed to save.',icon:'error',customClass:{popup:'swal-saas'}}); }
-            },
-
-
-            async testGAS() {
-                const url = document.getElementById('setting-gas-url').value.trim();
-                if (!url) return Swal.fire({title:'Missing URL',text:'Paste the URL first!',icon:'error',customClass:{popup:'swal-saas'}});
-                Swal.fire({ title:'Testing...', customClass:{popup:'swal-saas'}, didOpen:()=>Swal.showLoading() });
-                try {
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    if (json.ok) Swal.fire({title:'It Works! 🎉', text:'Successfully connected to Google Apps Script.', icon:'success',customClass:{popup:'swal-saas'}});
-                    else Swal.fire({title:'Hmm...', text:json.message||'Got a weird response.', icon:'warning',customClass:{popup:'swal-saas'}});
-                } catch(e) { Swal.fire({title:'Broken Link 🔗', text:'Cannot reach it. Check URL or redeploy.', icon:'error',customClass:{popup:'swal-saas'}}); }
-            },
-
-
-            renderBatchSelection() {
-                const container=document.getElementById('batch-teacher-list'); container.innerHTML='';
-                const filterSelect=document.getElementById('batch-filter-subject');
-                const prevFilter = filterSelect.value;
-                
-                // 將所有逗號分隔的科目拆解出來當作篩選器選項
-                let allSubj = [];
-                this.data.teachers.forEach(t => {
-                    if(t.subject) t.subject.split(',').forEach(s => allSubj.push(s.trim()));
-                });
-                const dynamicSubjects = [...new Set(allSubj)];
-                const allAvailableSubjects = [...new Set([...this.subjects, ...dynamicSubjects])].sort();
-                
-                filterSelect.innerHTML = '<option value="all">All Subjects</option>';
-                allAvailableSubjects.forEach(s => {
-                    filterSelect.innerHTML += `<option value="${s}" ${s === prevFilter ? 'selected' : ''}>${s}</option>`;
-                });
-                
-                const filter = filterSelect.value;
-                
-                // 篩選邏輯更新：只要該老師的科目字串 (依逗號切開) 有包含 filter 就會顯示
-                const filtered = filter === 'all' 
-                    ? this.data.teachers 
-                    : this.data.teachers.filter(t => t.subject && t.subject.split(',').map(s=>s.trim()).includes(filter));
-                
-                if(filtered.length===0){container.innerHTML=`<div class="col-span-2 text-center text-gray-400 py-10 font-bold">Nobody here...</div>`;return;}
-                filtered.forEach(t=>{
-                    container.innerHTML+=`
-                    <label class="flex items-center gap-2 bg-white p-3 rounded-2xl cursor-pointer border-2 border-gray-200 hover:border-[#1CB0F6] transition shadow-sm group">
-                        <input type="checkbox" class="peer sr-only batch-checkbox" value="${t.id}" onchange="admin.updateBatchCount()">
-                        <div class="w-10 h-10 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">${t.image?`<img src="${t.image}" class="w-full h-full object-cover">`:getMascotSVG(t.mascot||0)}</div>
-                        <div class="truncate flex-1">
-                            <div class="font-black text-sm text-gray-800 truncate">${t.name}</div>
-                            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${t.subject}</div>
-                        </div>
-                        <div class="ml-auto w-6 h-6 rounded-lg border-2 border-gray-200 peer-checked:bg-duo-green peer-checked:border-duo-green-dark flex items-center justify-center text-transparent peer-checked:text-white transition group-hover:bg-gray-50">
-                            <i class="fas fa-check text-xs"></i>
-                        </div>
-                    </label>`;
-                });
-                this.updateBatchCount();
-            },
-
-
-            toggleAllBatch(sel){document.querySelectorAll('.batch-checkbox').forEach(c=>c.checked=sel); this.updateBatchCount();},
-            
-            updateBatchCount(){document.getElementById('batch-selected-count').innerText=document.querySelectorAll('.batch-checkbox:checked').length;},
-            
-            async runBatch() {
-                const sel=Array.from(document.querySelectorAll('.batch-checkbox:checked')).map(c=>c.value);
-                if(sel.length===0) return Swal.fire({title:'Hold on!',text:'Pick at least one teacher.',icon:'warning',customClass:{popup:'swal-saas'}});
-                const date=document.getElementById('batch-date').value; const start=document.getElementById('batch-start').value;
-                const count=parseInt(document.getElementById('batch-count').value); const dur=parseInt(document.getElementById('batch-dur').value); const brk=parseInt(document.getElementById('batch-break').value)||0;
-                if(!date||!start||!count||!dur) return Swal.fire({title:'Missing info',text:'Fill all the blanks!',icon:'warning',customClass:{popup:'swal-saas'}});
-                const confirm=await Swal.fire({title:'Are you sure?',text:'Type YES to overwrite schedules.',input:'text',inputPlaceholder:'YES',showCancelButton:true,customClass:{popup:'swal-saas'}});
-                if(confirm.value!=='YES') return;
-                Swal.fire({title:'Doing magic... ✨',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-                const toTime=m=>`${Math.floor(m/60).toString().padStart(2,'0')}:${(m%60).toString().padStart(2,'0')}`;
-                const toMins=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
-                try {
-                    for(const tid of sel){
-                        const b=writeBatch(this.db); const ref=collection(this.db,`${this.paths.teachersCollection}/${tid}/slots`);
-                        const exist=await getDocs(ref); exist.forEach(d=>b.delete(d.ref));
-                        let cur=toMins(start);
-                        for(let i=0;i<count;i++){
-                            const endMins = cur + dur;
-                            const timeStr = `${toTime(cur)}~${toTime(endMins)}`;
-                            const d=doc(ref); 
-                            b.set(d,{date,time:timeStr,status:'available'}); 
-                            cur+=dur+brk;
-                        }
-                        await b.commit();
-                    }
-                    Swal.fire({title:'Tada! 🎉',text:'Slots generated for everyone.',icon:'success',customClass:{popup:'swal-saas'}}); 
-                    this.toggleAllBatch(false);
-                    this.renderTeachers(); 
-                } catch(e){Swal.fire({title:'Error',text:'Batch failed',icon:'error',customClass:{popup:'swal-saas'}});}
-            },
-
-
-            exportCSV() {
-                const data=this.data.bookings.map(b=>({
-                    "Date":b.slotDate||'',
-                    'Time':b.slotTime,
-                    'Teacher':b.teacherName,
-                    'Student':b.student,
-                    'Parent':b.parent,
-                    'Email':b.email,
-                    'Message':b.message||'', 
-                    'Booked At':new Date(b.createdAt).toLocaleString()
+                const tot = Math.floor(diff/1000);
+                const d=Math.floor(tot/86400), h=Math.floor((tot%86400)/3600), m=Math.floor((tot%3600)/60), s=tot%60;
+                const dEl=document.getElementById('cd-days'), dSep=document.getElementById('cd-days-sep');
+                if (d > 0) { dEl.style.display=''; dSep.style.display=''; dEl.innerText=d; }
+                else { dEl.style.display='none'; dSep.style.display='none'; }
+                document.getElementById('cd-hours').innerText   = String(h).padStart(2,'0');
+                document.getElementById('cd-minutes').innerText = String(m).padStart(2,'0');
+                document.getElementById('cd-seconds').innerText = String(s).padStart(2,'0');
+            };
+            tick(); this.countdownTimer = setInterval(tick, 1000);
+        },
+
+
+        async loadSchedule() {
+            onSnapshot(query(collection(this.db, this.paths.teachersCollection)), async snap => {
+                if (snap.empty) { this.revealPage(); this.showEmpty("Coming Soon","No teachers loaded yet."); return; }
+                this.data.teachers = await Promise.all(snap.docs.map(async d => {
+                    const t = {...d.data(), id:d.id, slots:[]};
+                    const ss = await getDocs(collection(this.db, `${this.paths.teachersCollection}/${t.id}/slots`));
+                    ss.forEach(s => t.slots.push({...s.data(), id:s.id}));
+                    t.slots.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||a.time.localeCompare(b.time));
+                    return t;
                 }));
-                const ws=XLSX.utils.json_to_sheet(data); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Bookings"); XLSX.writeFile(wb,"IBSH_PTA_Bookings.xlsx");
-            },
-
-
-            async emailSchedulesToTeachers() {
-                if (!this.data.bookings || this.data.bookings.length === 0) {
-                    return Swal.fire({title: 'No Bookings', text: 'There are no bookings to send yet.', icon: 'warning', customClass:{popup:'swal-saas'}});
-                }
-
-
-                const res = await Swal.fire({
-                    title: 'Send Schedules to Teachers?',
-                    text: 'This will email every booked teacher their final list of appointments with parent details and messages.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, send emails!',
-                    confirmButtonColor: '#FF9600',
-                    customClass: { popup: 'swal-saas' }
-                });
-                if (!res.isConfirmed) return;
-
-
-                Swal.fire({title:'Sending Emails...', text: 'Please do not close this window.', customClass:{popup:'swal-saas'}, didOpen:()=>Swal.showLoading()});
-
-
-                const schedulesMap = {};
-                this.data.bookings.forEach(b => {
-                    const tEmail = b.teacherEmail;
-                    if (!tEmail) return; 
-
-
-                    if (!schedulesMap[tEmail]) {
-                        schedulesMap[tEmail] = {
-                            teacherEmail: tEmail,
-                            teacherName: b.teacherName,
-                            bookings: []
-                        };
-                    }
-                    schedulesMap[tEmail].bookings.push({
-                        slotTime: b.slotTime,
-                        slotDate: b.slotDate || '',
-                        student: b.student,
-                        parent: b.parent,
-                        email: b.email,
-                        message: b.message || ''
-                    });
-                });
-
-
-                const schedules = Object.values(schedulesMap);
+                this.revealPage();
                 
-                schedules.forEach(t => {
-                    t.bookings.sort((a,b) => (a.slotDate||'').localeCompare(b.slotDate||'') || a.slotTime.localeCompare(b.slotTime));
-                });
-
-
-                if (schedules.length === 0) {
-                    return Swal.fire({title: 'Wait!', text: 'None of the booked teachers have an email address set up in the system.', icon: 'error', customClass:{popup:'swal-saas'}});
+                // Keep the current view up to date if data changes
+                const q = document.getElementById('search-input').value;
+                if (q) this.handleSearch(q);
+                else if (this.currentView === 'time' && this.currentTeacher) {
+                    const updatedTeacher = this.data.teachers.find(t => t.id === this.currentTeacher.id);
+                    if (updatedTeacher) this.renderTeacherDetail(updatedTeacher);
+                    else this.showSubjects();
                 }
+                else if (this.currentView === 'teacher' && this.currentSubject) this.selectSubject(this.currentSubject);
+                else this.renderSubjects(this.data.teachers);
+            });
+        },
 
 
-                try {
-                    const result = await callGAS({
-                        action: "sendTeacherSchedules",
-                        schedules: schedules
-                    });
+        revealPage() { document.getElementById('loading-overlay').classList.add('hidden'); document.getElementById('main-content').style.display=''; },
 
 
-                    if (result.ok) {
-                        Swal.fire({title: 'Sent! 🚀', text: result.message, icon: 'success', customClass:{popup:'swal-saas'}});
-                    } else {
-                        Swal.fire({title: 'Error', text: result.error || 'Failed to send emails.', icon: 'error', customClass:{popup:'swal-saas'}});
-                    }
-                } catch (e) {
-                    Swal.fire({title: 'Error', text: e.message, icon: 'error', customClass:{popup:'swal-saas'}});
+        showEmpty(title='Schedule Closed', msg='Please check back later.') {
+            document.getElementById('empty-state').style.display='block';
+            document.getElementById('empty-state-title').innerText=title;
+            document.getElementById('empty-state-text').innerText=msg;
+            document.getElementById('step-subject').style.display='none';
+            document.getElementById('step-teacher').style.display='none';
+            document.getElementById('step-time').style.display='none';
+            document.getElementById('board-toolbar').style.display='none';
+        },
+
+
+        handleSearch(queryText) {
+            const q = queryText.trim().toLowerCase();
+            if (!q) { 
+                if(this.currentView==='time' && this.currentTeacher) {
+                    this.selectTeacher(this.currentTeacher);
+                } else if(this.currentView==='teacher' && this.currentSubject) {
+                    this.selectSubject(this.currentSubject); 
+                } else {
+                    this.showSubjects(); 
+                }
+                return; 
+            }
+            
+            // 搜尋模式強制切換到「挑選老師」的清單畫面
+            this.currentView = 'teacher';
+            document.getElementById('step-subject').style.display='none';
+            document.getElementById('step-teacher').style.display='block';
+            document.getElementById('step-time').style.display='none';
+            document.getElementById('empty-state').style.display='none';
+            document.getElementById('board-toolbar').style.display='flex';
+            
+            document.getElementById('step-1-nav').classList.remove('active');
+            document.getElementById('step-2-nav').classList.add('active');
+            document.getElementById('step-2-nav').innerHTML=`Search: "${escapeHtml(q)}"`;
+            document.getElementById('nav-arrow-2').style.display='none';
+            document.getElementById('step-3-nav').style.display='none';
+            document.getElementById('btn-back-to-subject').style.display='none'; // 搜尋時不顯示返回按鈕
+            
+            this.renderTeachers(this.data.teachers.filter(t=>(t.name&&t.name.toLowerCase().includes(q))||(t.subject&&t.subject.toLowerCase().includes(q))||(t.location&&t.location.toLowerCase().includes(q))));
+        },
+
+
+        renderSubjects(teachers=this.data.teachers) {
+            this.currentView='subject'; 
+            this.currentSubject=null;
+            this.currentTeacher=null;
+            
+            document.getElementById('board-toolbar').style.display='flex';
+            document.getElementById('step-1-nav').classList.add('active');
+            document.getElementById('step-2-nav').classList.remove('active');
+            document.getElementById('step-2-nav').innerText='2. Teacher';
+            document.getElementById('nav-arrow-2').style.display = 'none';
+            document.getElementById('step-3-nav').style.display = 'none';
+            
+            document.getElementById('empty-state').style.display='none';
+            document.getElementById('step-subject').style.display='block';
+            document.getElementById('step-teacher').style.display='none';
+            document.getElementById('step-time').style.display='none';
+            
+            // 將所有老師的 subject (可能包含逗號) 拆解出來變成獨立分類
+            let allSubjects = [];
+            teachers.forEach(t => {
+                if(t.subject) t.subject.split(',').forEach(s => allSubjects.push(s.trim()));
+            });
+            const subjects = [...new Set(allSubjects)].filter(Boolean).sort();
+            
+            const c = document.getElementById('subject-list'); c.innerHTML='';
+            subjects.forEach((sub,i)=>{
+                // 只要老師的科目字串包含這個分類名稱，就算進數量裡
+                const count = teachers.filter(t => t.subject && t.subject.split(',').map(s=>s.trim()).includes(sub)).length;
+                const btn=document.createElement('div'); btn.className='subject-card fade-in'; btn.style.animationDelay=`${i*.05}s`;
+                btn.innerHTML=`<div class="subject-icon">${getSubjectIcon(sub)}</div><div class="subject-name">${escapeHtml(sub)}</div><div class="subject-count">${count} Teacher${count>1?'s':''}</div>`;
+                btn.addEventListener('click',()=>{document.getElementById('search-input').value='';this.selectSubject(sub);});
+                c.appendChild(btn);
+            });
+        },
+
+
+        showSubjects() { 
+            if (this.slotSnapshotUnsubscribe) { this.slotSnapshotUnsubscribe(); this.slotSnapshotUnsubscribe = null; }
+            document.getElementById('search-input').value=''; 
+            this.renderSubjects(this.data.teachers); 
+        },
+
+
+        selectSubject(sub) {
+            if (this.slotSnapshotUnsubscribe) { this.slotSnapshotUnsubscribe(); this.slotSnapshotUnsubscribe = null; }
+            this.currentView='teacher'; 
+            this.currentSubject=sub;
+            this.currentTeacher=null;
+            
+            document.getElementById('step-subject').style.display='none';
+            document.getElementById('step-teacher').style.display='block';
+            document.getElementById('step-time').style.display='none';
+            
+            document.getElementById('btn-back-to-subject').style.display='inline-flex';
+            
+            document.getElementById('step-1-nav').classList.remove('active');
+            document.getElementById('step-2-nav').classList.add('active');
+            document.getElementById('step-2-nav').innerHTML=`${getSubjectIcon(sub)} ${escapeHtml(sub)} Teachers`;
+            document.getElementById('nav-arrow-2').style.display = 'none';
+            document.getElementById('step-3-nav').style.display = 'none';
+            
+            // 只要老師的科目欄位包含所選的科目，就會顯示
+            this.renderTeachers(this.data.teachers.filter(t => t.subject && t.subject.split(',').map(s=>s.trim()).includes(sub)));
+        },
+
+
+        renderTeachers(list) {
+            const c = document.getElementById('teacher-list'); c.innerHTML='';
+            if(!list.length){c.innerHTML='<div style="text-align:center;grid-column:1/-1;padding:60px;color:#94a3b8;font-weight:800;font-size:20px;">No teachers found.</div>';return;}
+            
+            list.forEach((t,i)=>{
+                const av = t.image && t.image.startsWith('data:image') 
+                    ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">` 
+                    : getMascotSVG(t.mascot||0);
+                
+                const card = document.createElement('div');
+                card.className = 'teacher-select-card fade-in';
+                card.style.animationDelay = `${i*.05}s`;
+                
+                card.innerHTML = `
+                    <div class="ts-avatar-wrapper">
+                        <div class="ts-avatar">${av}</div>
+                    </div>
+                    <div class="ts-name">${escapeHtml(t.name)}</div>
+                `;
+                // 點擊卡片直接跳轉到第三層 (時間表與簡歷)
+                card.addEventListener('click', () => this.selectTeacher(t));
+                c.appendChild(card);
+            });
+        },
+
+
+        selectTeacher(t) {
+            this.currentView = 'time';
+            this.currentTeacher = t;
+            
+            document.getElementById('step-subject').style.display = 'none';
+            document.getElementById('step-teacher').style.display = 'none';
+            document.getElementById('step-time').style.display = 'block';
+
+
+            document.getElementById('step-2-nav').classList.remove('active');
+            document.getElementById('nav-arrow-2').style.display = 'inline-block';
+            document.getElementById('step-3-nav').style.display = 'inline-block';
+            document.getElementById('step-3-nav').classList.add('active');
+            
+            // 先渲染已有的舊資料避免畫面空白
+            this.renderTeacherDetail(t);
+
+
+            // 設置即時監聽器，讓其他家長點擊時，畫面能立刻更新「Booking...」狀態
+            if (this.slotSnapshotUnsubscribe) this.slotSnapshotUnsubscribe();
+            this.slotSnapshotUnsubscribe = onSnapshot(collection(this.db, `${this.paths.teachersCollection}/${t.id}/slots`), ss => {
+                t.slots = [];
+                ss.forEach(s => t.slots.push({...s.data(), id:s.id}));
+                t.slots.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||a.time.localeCompare(b.time));
+                
+                if (this.currentView === 'time' && this.currentTeacher?.id === t.id) {
+                    this.renderTeacherDetail(t);
+                }
+            });
+        },
+
+
+        renderTeacherDetail(t) {
+            const c = document.getElementById('single-teacher-container');
+            const byDate={};
+            t.slots.forEach(s=>{const d=s.date||'General';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
+            
+            let slotsHtml='';
+            if(!Object.keys(byDate).length){
+                const customMsg = t.noSlotsMessage 
+                    ? escapeHtml(t.noSlotsMessage).replace(/\n/g, '<br>') 
+                    : 'No slots available yet...';
+                    
+                slotsHtml=`
+                    <div style="background:#f8fafc; border:2px dashed #e2e8f0; border-radius:16px; padding:32px 20px; text-align:center; color:#64748b;">
+                        <div style="font-size:32px; margin-bottom:12px;">☕</div>
+                        <div style="font-size:16px; font-weight:800; line-height:1.5;">${customMsg}</div>
+                    </div>`;
+            } else {
+                for(const[date,ds]of Object.entries(byDate)){
+                    const lbl=date==='General'?'':`<div class="date-label"><i class="far fa-calendar-alt"></i> ${escapeHtml(date)}</div>`;
+                    const btns=ds.map(s=>{
+                        if (s.status === 'booked') {
+                            return `<button disabled class="slot-btn slot-booked">${escapeHtml(s.time)}</button>`;
+                        } else if (s.status === 'locked' && (Date.now() - (s.lockedAt || 0) < 300000)) {
+                            return `<button disabled class="slot-btn slot-locked">Booking <i class="fas fa-spinner"></i></button>`;
+                        } else {
+                            return `<button class="slot-btn slot-available" data-tid="${escapeHtml(t.id)}" data-sid="${escapeHtml(s.id)}" data-time="${escapeHtml(s.time)}" data-date="${escapeHtml(date)}">${escapeHtml(s.time)}</button>`;
+                        }
+                    }).join('');
+                    slotsHtml+=`${lbl}<div class="slots-row">${btns}</div>`;
                 }
             }
-        };
+            
+            const av = t.image && t.image.startsWith('data:image') 
+                ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">` 
+                : getMascotSVG(t.mascot||0);
+            
+            const noteHtml = t.note ? `
+                <div class="teacher-resume-note" style="margin-top: 24px;">
+                    <div class="note-title"><i class="fas fa-info-circle"></i> About Teacher</div>
+                    <div class="note-content">${escapeHtml(t.note).replace(/\n/g, '<br>')}</div>
+                </div>` : '';
+            
+            // 如果老師有多個科目，在簡歷的地方把它拆成多個美美的 Tag
+            const subjectTagsHtml = (t.subject || '').split(',').map(s => 
+                `<span class="teacher-meta-tag"><i class="fas fa-book" style="color:#cbd5e1;"></i> ${escapeHtml(s.trim())}</span>`
+            ).join('');
 
 
-        window.admin = admin;
-        document.addEventListener('DOMContentLoaded', () => admin.init());
-    </script>
+            c.innerHTML = `
+                <div class="teacher-card fade-in">
+                    <!-- 上半部：老師簡歷區 -->
+                    <div>
+                        <div class="teacher-resume-header">
+                            <div class="teacher-avatar-large">${av}</div>
+                            <div style="flex: 1;">
+                                <div class="teacher-name-large">${escapeHtml(t.name)}</div>
+                                <div class="teacher-meta-tags">
+                                    ${subjectTagsHtml}
+                                    <span class="teacher-meta-tag"><i class="fas fa-map-marker-alt" style="color:#cbd5e1;"></i> ${escapeHtml(t.location||'TBA')}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${noteHtml}
+                    </div>
+
+
+                    <!-- 下半部：預約時段區 -->
+                    <div class="slots-area">
+                        <div class="slots-area-title"><i class="fas fa-calendar-check" style="color:var(--duo-blue);"></i> Available Slots</div>
+                        ${slotsHtml}
+                    </div>
+                </div>`;
+                
+            c.querySelectorAll('.slot-available').forEach(btn=>btn.addEventListener('click',()=>this.book(btn.dataset.tid,btn.dataset.sid,btn.dataset.time,btn.dataset.date)));
+        },
+
+
+        async book(tid,slotId,timeLabel,dateLabel) {
+            if(Date.now()-this.lastBookingTime<3000)return Swal.fire({icon:'warning',title:'Too Fast!',text:'Please wait a few seconds.',customClass:{popup:'swal-saas'}});
+            if(!this.isOpen)return Swal.fire({icon:'error',title:'Booking Closed',customClass:{popup:'swal-saas'}});
+            this.lastBookingTime=Date.now();
+            const t=this.data.teachers.find(x=>x.id===tid);if(!t)return;
+            const dd=(dateLabel&&dateLabel!=='General')?`on ${escapeHtml(dateLabel)}`:'';
+            
+            // --- 步驟 0: 鎖定時段 (讓其他家長看到 Booking 狀態) ---
+            const slotRef = doc(this.db, `${this.paths.teachersCollection}/${tid}/slots/${slotId}`);
+            try {
+                await runTransaction(this.db, async tx => {
+                    const sf = await tx.get(slotRef);
+                    const data = sf.data();
+                    if (!sf.exists() || data.status === 'booked' || (data.status === 'locked' && Date.now() - (data.lockedAt || 0) < 300000)) {
+                        throw "unavailable";
+                    }
+                    tx.update(slotRef, { status: 'locked', lockedAt: Date.now() });
+                });
+            } catch (e) {
+                return Swal.fire({icon:'warning', title:'Too Slow! 🏃💨', text:'Someone else just started booking this time. Please pick another one.', customClass:{popup:'swal-saas'}});
+            }
+
+
+            // --- 步驟 1: 填寫預約表單 ---
+            const{value:form, isConfirmed: isNext}=await Swal.fire({
+                title:'Confirm Booking',
+                customClass:{popup:'swal-saas swal-wide'},
+                html:`
+                    <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:20px;padding:24px;margin-bottom:28px;text-align:left;">
+                        <div style="font-weight:900;color:#1e293b;font-size:24px;">${escapeHtml(t.name)}</div>
+                        <div style="color:var(--duo-green-dark);font-weight:900;font-size:20px;margin-top:8px;"><i class="far fa-clock"></i> ${escapeHtml(timeLabel)} ${dd}</div>
+                        <div style="color:#64748b;font-size:16px;font-weight:700;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;text-align:left;">
+                        <div style="display:flex; gap:16px;">
+                            <div style="flex:1;">
+                                <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">Student Name <span style="color:#ef4444">*</span></label>
+                                <input id="sw-student" class="saas-input" placeholder="e.g. John Doe" maxlength="50">
+                            </div>
+                            <div style="width:110px;">
+                                <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">Class <span style="color:#ef4444">*</span></label>
+                                <input id="sw-grade" class="saas-input" placeholder="e.g. 9A" maxlength="10">
+                            </div>
+                        </div>
+                        
+                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;">Parent Name <span style="color:#ef4444">*</span></label>
+                        <input id="sw-parent" class="saas-input" placeholder="e.g. Jane Doe" maxlength="50">
+                        
+                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;">Email Address <span style="color:#ef4444">*</span></label>
+                        <input id="sw-email" class="saas-input" type="email" placeholder="For confirmation & management" maxlength="100">
+                        
+                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;">Topics to Discuss (Optional)</label>
+                        <textarea id="sw-message" class="saas-input" rows="3" placeholder="Specific questions or topics you'd like to talk about..." maxlength="300" style="resize:vertical;"></textarea>
+                    </div>`,
+                focusConfirm:false,
+                showCancelButton:true,
+                confirmButtonText:'NEXT ➔',
+                confirmButtonColor: 'var(--duo-blue)',
+                preConfirm:()=>{
+                    const s=document.getElementById('sw-student').value.trim(),
+                          g=document.getElementById('sw-grade').value.trim(),
+                          p=document.getElementById('sw-parent').value.trim(),
+                          e=document.getElementById('sw-email').value.trim().toLowerCase(),
+                          m=document.getElementById('sw-message').value.trim();
+                    if(!s||!g||!p||!e)return Swal.showValidationMessage('Required fields missing!');
+                    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return Swal.showValidationMessage('Valid email required!');
+                    if(/[<>'"&]/.test(s)||/[<>'"&]/.test(p)||/[<>'"&]/.test(g))return Swal.showValidationMessage('Invalid characters!');
+                    return {student:s, grade:g, parent:p, email:e, message:m};
+                }
+            });
+            
+            if(!isNext || !form) {
+                // 如果家長關閉了表單，解除鎖定
+                updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                return;
+            }
+
+
+            // --- 步驟 2: 產生並發送 Email 驗證碼 ---
+            Swal.fire({
+                title:'Sending Code...', 
+                text: 'Please check your email.',
+                customClass:{popup:'swal-saas'},
+                didOpen:()=>Swal.showLoading(),
+                allowOutsideClick:false
+            });
+            
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiry = new Date(Date.now() + 15 * 60000).toISOString();
+            const codeKey = form.email.replace(/[.#$[\]/]/g, '_');
+            
+            try {
+                await setDoc(doc(this.db, this.paths.verifyCodes, codeKey), { code, expiry, email: form.email });
+            } catch {
+                return Swal.fire({title:'Error',text:'Could not securely save verification code.',icon:'error',customClass:{popup:'swal-saas'}});
+            }
+            
+            const gr = await callGAS({ action: "sendVerifyCode", email: form.email, code });
+            if (!gr.ok) {
+                updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                return Swal.fire({title:'Error',text:'Failed to send verification email. Is your email address correct?',icon:'error',customClass:{popup:'swal-saas'}});
+            }
+
+
+            // --- 步驟 3: 輸入驗證碼 ---
+            const { value: inputCode, isConfirmed: isVerified } = await Swal.fire({
+                title: 'Verify Email',
+                customClass: { popup: 'swal-saas swal-wide' },
+                html: `
+                    <p style="font-size:16px;font-weight:700;color:#64748b;margin-bottom:20px;">We sent a 6-digit code to <strong style="color:#1e293b">${escapeHtml(form.email)}</strong>.</p>
+                    <input id="book-verify-code" class="saas-input" style="text-align:center;font-size:32px;letter-spacing:12px;font-family:monospace;font-weight:900;padding:16px;" placeholder="000000" maxlength="6" inputmode="numeric">
+                    <p style="font-size:13px;color:#94a3b8;margin-top:12px;">Please check your inbox (and spam folder).</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'VERIFY & BOOK',
+                cancelButtonText: 'CANCEL',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const c = document.getElementById('book-verify-code').value.trim();
+                    if (!/^\d{6}$/.test(c)) return Swal.showValidationMessage('Please enter the 6-digit code');
+                    return c;
+                }
+            });
+
+
+            if (!isVerified || !inputCode) {
+                updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                return;
+            }
+
+
+            // --- 步驟 4: 驗證代碼並執行預約 (Transaction) ---
+            Swal.fire({title:'Verifying & Reserving...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading(),allowOutsideClick:false});
+            
+            try {
+                const codeSnap = await getDoc(doc(this.db, this.paths.verifyCodes, codeKey));
+                if (!codeSnap.exists()) {
+                    updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                    return Swal.fire({title:'Invalid',text:'Code not found.',icon:'error',customClass:{popup:'swal-saas'}});
+                }
+                
+                const { code: storedCode, expiry: exp } = codeSnap.data();
+                if (new Date() > new Date(exp)) {
+                    updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                    return Swal.fire({title:'Expired',text:'Verification code expired. Please try again.',icon:'error',customClass:{popup:'swal-saas'}});
+                }
+                if (storedCode !== inputCode) {
+                    updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                    return Swal.fire({title:'Incorrect',text:'Wrong verification code.',icon:'error',customClass:{popup:'swal-saas'}});
+                }
+
+
+                await runTransaction(this.db, async tx => {
+                    const sf = await tx.get(slotRef);
+                    if (!sf.exists() || sf.data().status === 'booked') throw "Slot unavailable";
+                    
+                    const bRef = doc(collection(this.db, this.paths.bookings));
+                    tx.set(bRef, {
+                        uid: this.auth.currentUser.uid,
+                        teacherId: tid,
+                        teacherName: t.name,
+                        teacherEmail: t.email || '',
+                        location: t.location || '',
+                        slotId,
+                        slotTime: timeLabel,
+                        slotDate: dateLabel,
+                        student: form.student,
+                        grade: form.grade, 
+                        parent: form.parent,
+                        email: form.email,
+                        message: form.message, 
+                        createdAt: new Date().toISOString()
+                    });
+                    tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null });
+                });
+
+
+                // 本地端立刻更新時段狀態並重新渲染，無需重新整理
+                const localSlot = t.slots.find(x => x.id === slotId);
+                if (localSlot) {
+                    localSlot.status = 'booked';
+                    if (this.currentView === 'time' && this.currentTeacher?.id === tid) {
+                        this.renderTeacherDetail(t);
+                    }
+                }
+
+
+                deleteDoc(doc(this.db, this.paths.verifyCodes, codeKey)).catch(()=>{});
+                
+                const studentWithGrade = `${form.student} (${form.grade})`;
+                
+                callGAS({
+                    action:"sendConfirmation",
+                    email:form.email,
+                    parent:form.parent,
+                    student:studentWithGrade, 
+                    teacherName:t.name,
+                    teacherEmail:t.email||'',
+                    slotTime:timeLabel,
+                    slotDate:dateLabel,
+                    location:t.location||'',
+                    message:form.message 
+                });
+                
+                Swal.fire({
+                    title:'Booking Confirmed!',
+                    html:`<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:20px;padding:24px;text-align:left;margin-top:20px;"><div style="font-weight:900;font-size:22px;color:#166534;">${escapeHtml(t.name)}</div><div style="color:var(--duo-green-dark);font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-check-circle"></i> ${escapeHtml(timeLabel)} ${dd}</div><div style="color:#166534;font-weight:700;font-size:16px;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div></div><p style="font-size:16px;color:#64748b;font-weight:700;margin-top:24px;">Confirmation sent to <strong>${escapeHtml(form.email)}</strong></p>`,
+                    confirmButtonText:'AWESOME!',
+                    customClass:{popup:'swal-saas'}
+                });
+            } catch (e) {
+                Swal.fire({title:'Oops!',text:typeof e==='string'?e:'Slot already taken. Please select another time.',icon:'error',customClass:{popup:'swal-saas'}});
+            }
+        },
+
+
+        async showManageFlow() {
+            const{value:email}=await Swal.fire({title:'My Bookings',customClass:{popup:'swal-saas swal-wide'},html:`<p style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:24px;">Enter the email used during booking.</p><input id="mg-email" class="saas-input" type="email" placeholder="your@email.com">`,confirmButtonText:'SEND CODE',showCancelButton:true,cancelButtonText:'CANCEL',focusConfirm:false,preConfirm:()=>{const e=document.getElementById('mg-email').value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return Swal.showValidationMessage('Enter a valid email');return e;}});
+            if(!email)return;
+            Swal.fire({title:'Sending code...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
+            const code=Math.floor(100000+Math.random()*900000).toString();
+            const expiry=new Date(Date.now()+15*60000).toISOString();
+            const codeKey=email.replace(/[.#$[\]/]/g,'_');
+            try{await setDoc(doc(this.db,this.paths.verifyCodes,codeKey),{code,expiry,email});}
+            catch{return Swal.fire({title:'Error',text:'Could not process request.',icon:'error',customClass:{popup:'swal-saas'}});}
+            const gr=await callGAS({action:"sendVerifyCode",email,code});
+            if(!gr.ok)return Swal.fire({title:'Error',text:'Failed to send email.',icon:'error',customClass:{popup:'swal-saas'}});
+            const{value:inputCode}=await Swal.fire({title:'Check Your Email',customClass:{popup:'swal-saas swal-wide'},html:`<p style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:24px;">Enter the 6-digit code sent to<br><strong style="color:#1e293b">${escapeHtml(email)}</strong></p><input id="mg-code" class="saas-input" style="text-align:center;font-size:36px;letter-spacing:16px;font-family:monospace;font-weight:900;padding:20px;" placeholder="000000" maxlength="6" inputmode="numeric">`,confirmButtonText:'VERIFY CODE',showCancelButton:true,cancelButtonText:'CANCEL',focusConfirm:false,preConfirm:()=>{const c=document.getElementById('mg-code').value.trim();if(!/^\d{6}$/.test(c))return Swal.showValidationMessage('Enter the 6-digit code');return c;}});
+            if(!inputCode)return;
+            try{
+                const snap=await getDoc(doc(this.db,this.paths.verifyCodes,codeKey));
+                if(!snap.exists())return Swal.fire({title:'Invalid',text:'Code not found.',icon:'error',customClass:{popup:'swal-saas'}});
+                const{code:stored,expiry:exp}=snap.data();
+                if(new Date()>new Date(exp))return Swal.fire({title:'Expired',text:'Code expired. Try again.',icon:'error',customClass:{popup:'swal-saas'}});
+                if(stored!==inputCode)return Swal.fire({title:'Incorrect',text:'Wrong code.',icon:'error',customClass:{popup:'swal-saas'}});
+            }catch{return Swal.fire({title:'Error',text:'Verification failed.',icon:'error',customClass:{popup:'swal-saas'}});}
+            await this.showBookingsForEmail(email);
+        },
+
+
+        async showBookingsForEmail(email) {
+            Swal.fire({title:'Loading...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
+            try{
+                const snap=await getDocs(query(collection(this.db,this.paths.bookings),where("email","==",email)));
+                if(snap.empty)return Swal.fire({title:'No Bookings',text:`No active bookings found for ${email}.`,icon:'info',customClass:{popup:'swal-saas'}});
+                let html=`<div style="text-align:left;display:flex;flex-direction:column;gap:16px;max-height:400px;overflow-y:auto;padding:4px 8px 4px 4px;">`;
+                
+                snap.forEach(d=>{
+                    const b=d.data();
+                    const dd=(b.slotDate&&b.slotDate!=='General')?` · ${b.slotDate}`:'';
+                    const gradeTag = b.grade ? `<span style="background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:8px; font-size:12px; margin-left:6px; font-weight:900;">${escapeHtml(b.grade)}</span>` : '';
+                    
+                    html+=`
+                    <div style="background:white;padding:24px;border-radius:20px;border:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:20px;box-shadow:0 8px 20px rgba(0,0,0,0.04);">
+                        <div>
+                            <div style="font-weight:900;color:#1e293b;font-size:20px;">${escapeHtml(b.teacherName)}</div>
+                            <div style="color:var(--duo-green-dark);font-size:18px;font-weight:900;margin-top:6px;"><i class="far fa-clock"></i> ${escapeHtml(b.slotTime)}${escapeHtml(dd)}</div>
+                            <div style="color:#64748b;font-size:15px;font-weight:700;margin-top:8px;display:flex;align-items:center;"><i class="fas fa-user" style="margin-right:6px;"></i> ${escapeHtml(b.student)}${gradeTag}</div>
+                        </div>
+                        <button class="cancel-btn" data-bid="${d.id}" data-tid="${escapeHtml(b.teacherId)}" data-sid="${escapeHtml(b.slotId)}" data-teacher="${escapeHtml(b.teacherName)}" data-time="${escapeHtml(b.slotTime)}" data-date="${escapeHtml(b.slotDate||'')}" data-student="${escapeHtml(b.student)} (${escapeHtml(b.grade||'')})" data-parent="${escapeHtml(b.parent)}" data-email="${escapeHtml(b.email)}" style="background:#fef2f2;color:#ef4444;border:none;padding:12px 20px;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;transition:.2s;flex-shrink:0;">CANCEL</button>
+                    </div>`;
+                });
+                html+=`</div>`;
+                Swal.fire({title:'Manage Bookings',html,showConfirmButton:true,confirmButtonText:'DONE',width:700,customClass:{popup:'swal-saas swal-wide'},didOpen:()=>{document.querySelectorAll('.cancel-btn').forEach(btn=>{btn.addEventListener('mouseover',()=>btn.style.background='#fee2e2');btn.addEventListener('mouseout',()=>btn.style.background='#fef2f2');btn.addEventListener('click',()=>this.cancelByParent(btn.dataset,email));});}});
+            }catch{Swal.fire({title:'Error',text:'Could not load bookings.',icon:'error',customClass:{popup:'swal-saas'}});}
+        },
+
+
+        async cancelByParent(d,email) {
+            const res=await Swal.fire({title:'Cancel Booking?',customClass:{popup:'swal-saas'},html:`<div style="background:#fef2f2;border:2px solid #fecaca;border-radius:20px;padding:24px;text-align:left;margin-bottom:20px;"><div style="font-weight:900;font-size:22px;color:#991b1b;">${escapeHtml(d.teacher)}</div><div style="color:#dc2626;font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-times-circle"></i> ${escapeHtml(d.time)}${d.date?' · '+escapeHtml(d.date):''}</div></div>`,showCancelButton:true,confirmButtonColor:'#ef4444',confirmButtonText:'YES, CANCEL',cancelButtonColor:'#e2e8f0',cancelButtonText:'KEEP IT'});
+            if(!res.isConfirmed)return;
+            Swal.fire({title:'Cancelling...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
+            try{
+                const sr=doc(this.db,`${this.paths.teachersCollection}/${d.tid}/slots/${d.sid}`);
+                
+                // 先釋放時段
+                await runTransaction(this.db,async tx=>{
+                    const s=await tx.get(sr);
+                    if(s.exists()) tx.update(sr,{status:'available',bookingRef:null,lockedAt:null});
+                });
+                
+                // 嘗試刪除預約紀錄
+                try {
+                    await deleteDoc(doc(this.db,this.paths.bookings,d.bid));
+                } catch(delErr) {
+                    console.warn("Failed to delete booking doc due to rules, but slot is freed.", delErr);
+                }
+                
+                callGAS({action:"sendCancellation",email,parent:d.parent,student:d.student,teacherName:d.teacher,slotTime:d.time,slotDate:d.date||''});
+                await Swal.fire({title:'Cancelled',text:'Your booking has been removed.',icon:'success',confirmButtonText:'OK',customClass:{popup:'swal-saas'}});
+                this.showBookingsForEmail(email);
+            }catch(e){
+                console.error(e);
+                Swal.fire({title:'Error',text:'Failed to cancel. Please check Firebase rules.',icon:'error',customClass:{popup:'swal-saas'}});
+            }
+        }
+    };
+
+
+    window.app = app;
+    document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
 </body>
 </html>
