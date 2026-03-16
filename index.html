@@ -524,7 +524,8 @@ function toggleBulletin() {
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-    import { getFirestore, doc, setDoc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    // ✅ 新增了 addDoc 在下方 import 列表中
+    import { getFirestore, doc, setDoc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
 
@@ -733,6 +734,7 @@ function toggleBulletin() {
 
         async writeLog(action, details) {
             try {
+                // ✅ 這裡現在可以正常使用 addDoc 了！
                 await addDoc(collection(this.db, this.paths.logs), {
                     action: action,
                     details: details,
