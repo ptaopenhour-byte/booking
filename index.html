@@ -606,7 +606,8 @@ function toggleBulletin() {
             teachersCollection: 'artifacts/ibsh-pta-v2/public/data/teachers',
             bookings: 'artifacts/ibsh-pta-v2/private_bookings',
             config: 'artifacts/ibsh-pta-v2/public/system_settings',
-            verifyCodes: 'artifacts/ibsh-pta-v2/verify_codes'
+            verifyCodes: 'artifacts/ibsh-pta-v2/verify_codes',
+            logs: 'artifacts/ibsh-pta-v2/system_logs'
         },
         data: { teachers: [] },
         currentView: 'subject', currentSubject: null, currentTeacher: null,
@@ -730,29 +731,46 @@ function toggleBulletin() {
         },
 
 
+        async writeLog(action, details) {
+            try {
+                await addDoc(collection(this.db, this.paths.logs), {
+                    action: action,
+                    details: details,
+                    userEmail: 'Parent',
+                    timestamp: new Date().toISOString(),
+                    timestampMs: Date.now()
+                });
+            } catch (e) { console.warn("Log failed", e); }
+        },
+
+
+        // ✅ 已優化：改成一次性讀取 (getDocs)。老師資料不需要即時更新，徹底杜絕無效的讀取浪費
         async loadSchedule() {
-            onSnapshot(query(collection(this.db, this.paths.teachersCollection)), async snap => {
-                if (snap.empty) { this.revealPage(); this.showEmpty("Coming Soon","No teachers loaded yet."); return; }
-                this.data.teachers = await Promise.all(snap.docs.map(async d => {
-                    const t = {...d.data(), id:d.id, slots:[]};
-                    const ss = await getDocs(collection(this.db, `${this.paths.teachersCollection}/${t.id}/slots`));
-                    ss.forEach(s => t.slots.push({...s.data(), id:s.id}));
-                    t.slots.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||a.time.localeCompare(b.time));
-                    return t;
-                }));
-                this.revealPage();
+            try {
+                const snap = await getDocs(query(collection(this.db, this.paths.teachersCollection)));
                 
-                // Keep the current view up to date if data changes
-                const q = document.getElementById('search-input').value;
-                if (q) this.handleSearch(q);
-                else if (this.currentView === 'time' && this.currentTeacher) {
-                    const updatedTeacher = this.data.teachers.find(t => t.id === this.currentTeacher.id);
-                    if (updatedTeacher) this.renderTeacherDetail(updatedTeacher);
-                    else this.showSubjects();
+                if (snap.empty) { 
+                    this.revealPage(); 
+                    this.showEmpty("Coming Soon", "No teachers loaded yet."); 
+                    return; 
                 }
-                else if (this.currentView === 'teacher' && this.currentSubject) this.selectSubject(this.currentSubject);
-                else this.renderSubjects(this.data.teachers);
-            });
+                
+                // 直接 map 出老師資料，slots 留空，等待被點擊時再載入
+                this.data.teachers = snap.docs.map(d => ({
+                    ...d.data(), 
+                    id: d.id, 
+                    slots: [] 
+                }));
+                
+                this.revealPage();
+                // 初始載入直接顯示科目列表
+                this.renderSubjects(this.data.teachers);
+                
+            } catch (error) {
+                console.error("Schedule load error:", error);
+                this.revealPage();
+                this.showEmpty("Error", "Failed to load schedule. Please refresh.");
+            }
         },
 
 
@@ -1195,6 +1213,8 @@ function toggleBulletin() {
                 
                 const studentWithGrade = `${form.student} (${form.grade})`;
                 
+                this.writeLog('Booking Created', `Parent (${form.email}) booked ${studentWithGrade} with ${t.name} on ${dateLabel} ${timeLabel}`);
+                
                 callGAS({
                     action:"sendConfirmation",
                     email:form.email,
@@ -1291,6 +1311,8 @@ function toggleBulletin() {
                 } catch(delErr) {
                     console.warn("Failed to delete booking doc due to rules, but slot is freed.", delErr);
                 }
+                
+                this.writeLog('Booking Cancelled', `Parent (${email}) cancelled booking for ${d.student} with ${d.teacher} on ${d.date} ${d.time}`);
                 
                 callGAS({action:"sendCancellation",email,parent:d.parent,student:d.student,teacherName:d.teacher,slotTime:d.time,slotDate:d.date||''});
                 await Swal.fire({title:'Cancelled',text:'Your booking has been removed.',icon:'success',confirmButtonText:'OK',customClass:{popup:'swal-saas'}});
