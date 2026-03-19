@@ -346,12 +346,62 @@
 
         .fade-in { animation:fadeIn .4s ease-out both; }
         @keyframes fadeIn { from{opacity:0; transform:translateY(15px)} to{opacity:1; transform:translateY(0)} }
+
+
+        /* ═══ Landing Page ═══ */
+        #landing-page {
+            position: fixed; inset: 0; z-index: 1000;
+            background: var(--bg-body);
+            background-image:
+                radial-gradient(circle at top left, rgba(28, 176, 246, 0.12), transparent 40%),
+                radial-gradient(circle at bottom right, rgba(255, 150, 0, 0.12), transparent 40%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 24px; text-align: center;
+        }
+        #landing-page.hidden { display: none; }
+        .landing-card {
+            background: white; border-radius: 32px; padding: clamp(40px, 8vw, 64px) clamp(24px, 5vw, 48px);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.08); border: 3px solid #f1f5f9;
+            max-width: 520px; width: 100%; position: relative; overflow: hidden;
+        }
+        .landing-card::before {
+            content:''; position:absolute; top:0; left:0; right:0; height:8px;
+            background: linear-gradient(90deg, var(--duo-blue), var(--duo-green), var(--duo-orange));
+        }
+        .landing-mascot { font-size: 96px; margin-bottom: 24px; }
+        .landing-title { font-size: clamp(28px, 6vw, 42px); font-weight: 900; color: #1e293b; margin-bottom: 12px; letter-spacing: -1px; }
+        .landing-desc { font-size: clamp(15px, 3vw, 18px); font-weight: 700; color: #64748b; line-height: 1.6; margin-bottom: 32px; }
+        .landing-enter-btn {
+            background: var(--duo-green); color: white; border: none;
+            padding: 18px 48px; border-radius: 30px; font-weight: 900; font-size: 20px;
+            border-bottom: 5px solid var(--duo-green-dark);
+            cursor: pointer; transition: all .15s cubic-bezier(0.34,1.56,0.64,1);
+            display: inline-flex; align-items: center; gap: 12px;
+            font-family: 'Nunito', sans-serif; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .landing-enter-btn:hover { transform: translateY(-3px); filter: brightness(1.05); box-shadow: 0 8px 24px rgba(88,204,2,0.3); }
+        .landing-enter-btn:active { transform: translateY(3px); border-bottom-width: 0px; margin-bottom: 5px; }
+        .landing-footer { margin-top: 24px; font-size: 13px; font-weight: 700; color: #94a3b8; }
     </style>
 </head>
 <body>
 
 
-<div id="loading-overlay">
+<!-- ═══ Landing Page (0 Firebase reads) ═══ -->
+<div id="landing-page">
+    <div class="landing-card">
+        <div class="landing-mascot doodle-bounce">🦉</div>
+        <h1 class="landing-title">IBSH PTA Open Hour</h1>
+        <p class="landing-desc">Book a one-on-one meeting with your child's teachers.<br>Quick, easy, and hassle-free!</p>
+        <button class="landing-enter-btn" onclick="window.startApp()">
+            <i class="fas fa-door-open"></i> Enter
+        </button>
+        <div class="landing-footer">International Bilingual School at Hsinchu</div>
+    </div>
+</div>
+
+
+<div id="loading-overlay" class="hidden">
     <div class="doodle-bounce" style="font-size:80px;">🦉</div>
     <div style="font-weight:900;color:var(--duo-green);font-size:24px;letter-spacing:1px;text-transform:uppercase;">Waking up owls...</div>
 </div>
@@ -524,8 +574,8 @@ function toggleBulletin() {
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-    // ✅ 新增了 addDoc 在下方 import 列表中
-    import { getFirestore, doc, setDoc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    // ✅ 移除了 setDoc (不再需要寫入 verify_codes)，保留其他必要的 Firestore 操作
+    import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
 
@@ -572,9 +622,13 @@ function toggleBulletin() {
 
 
     async function callGAS(payload) {
-        try { const r=await fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(payload)}); return await r.json(); }
+        // ✅ 優先使用 Firestore 裡的 GAS URL（管理員可在後台更換），否則 fallback 到硬編碼的
+        const url = window._GAS_URL || GAS_URL;
+        try { const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(payload)}); return await r.json(); }
         catch(e) { return {ok:false}; }
     }
+    // ✅ 新增：防抖函式，避免搜尋每打一個字就觸發重新渲染
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
     function formatDateTime(str) {
         if (!str) return '—';
         try { return new Date(str).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}); }
@@ -601,13 +655,17 @@ function toggleBulletin() {
     }
 
 
+    // ✅ 每人最多可預約的時段數量
+    const BOOKING_LIMIT = 10;
+    // ✅ localStorage 快取 TTL（5 分鐘）
+    const CACHE_TTL = 5 * 60 * 1000;
+
     const app = {
         db: null, auth: null,
         paths: {
             teachersCollection: 'artifacts/ibsh-pta-v2/public/data/teachers',
             bookings: 'artifacts/ibsh-pta-v2/private_bookings',
             config: 'artifacts/ibsh-pta-v2/public/system_settings',
-            verifyCodes: 'artifacts/ibsh-pta-v2/verify_codes',
             logs: 'artifacts/ibsh-pta-v2/system_logs'
         },
         data: { teachers: [] },
@@ -632,7 +690,9 @@ function toggleBulletin() {
             });
             
             document.getElementById('btn-manage').addEventListener('click', () => this.showManageFlow());
-            document.getElementById('search-input').addEventListener('input', e => this.handleSearch(e.target.value));
+            // ✅ 搜尋加入 300ms 防抖，避免每按一個鍵就重新渲染
+            const debouncedSearch = debounce(v => this.handleSearch(v), 300);
+            document.getElementById('search-input').addEventListener('input', e => debouncedSearch(e.target.value));
             
             onAuthStateChanged(this.auth, user => {
                 if (user) this.checkSystemConfig();
@@ -746,28 +806,45 @@ function toggleBulletin() {
         },
 
 
-        // ✅ 已優化：改成一次性讀取 (getDocs)。老師資料不需要即時更新，徹底杜絕無效的讀取浪費
+        // ✅ 已優化：先從 localStorage 讀取快取，過期才向 Firebase 拉資料，大幅減少讀取量
         async loadSchedule() {
             try {
-                const snap = await getDocs(query(collection(this.db, this.paths.teachersCollection)));
-                
-                if (snap.empty) { 
-                    this.revealPage(); 
-                    this.showEmpty("Coming Soon", "No teachers loaded yet."); 
-                    return; 
+                // 嘗試從快取載入
+                const cached = localStorage.getItem('pta_teachers');
+                const cacheTime = parseInt(localStorage.getItem('pta_teachers_ts') || '0');
+
+                if (cached && (Date.now() - cacheTime) < CACHE_TTL) {
+                    this.data.teachers = JSON.parse(cached);
+                    this.revealPage();
+                    this.renderSubjects(this.data.teachers);
+                    console.log('✅ Loaded from cache, 0 Firebase reads');
+                    return;
                 }
-                
+
+                const snap = await getDocs(query(collection(this.db, this.paths.teachersCollection)));
+
+                if (snap.empty) {
+                    this.revealPage();
+                    this.showEmpty("Coming Soon", "No teachers loaded yet.");
+                    return;
+                }
+
                 // 直接 map 出老師資料，slots 留空，等待被點擊時再載入
                 this.data.teachers = snap.docs.map(d => ({
-                    ...d.data(), 
-                    id: d.id, 
-                    slots: [] 
+                    ...d.data(),
+                    id: d.id,
+                    slots: []
                 }));
-                
+
+                // 寫入快取
+                try {
+                    localStorage.setItem('pta_teachers', JSON.stringify(this.data.teachers));
+                    localStorage.setItem('pta_teachers_ts', Date.now().toString());
+                } catch(e) { /* localStorage 滿了或不可用，忽略 */ }
+
                 this.revealPage();
-                // 初始載入直接顯示科目列表
                 this.renderSubjects(this.data.teachers);
-                
+
             } catch (error) {
                 console.error("Schedule load error:", error);
                 this.revealPage();
@@ -1033,6 +1110,7 @@ function toggleBulletin() {
             
             // --- 步驟 0: 鎖定時段 (讓其他家長看到 Booking 狀態) ---
             const slotRef = doc(this.db, `${this.paths.teachersCollection}/${tid}/slots/${slotId}`);
+            const myUid = this.auth.currentUser.uid;
             try {
                 await runTransaction(this.db, async tx => {
                     const sf = await tx.get(slotRef);
@@ -1040,7 +1118,8 @@ function toggleBulletin() {
                     if (!sf.exists() || data.status === 'booked' || (data.status === 'locked' && Date.now() - (data.lockedAt || 0) < 300000)) {
                         throw "unavailable";
                     }
-                    tx.update(slotRef, { status: 'locked', lockedAt: Date.now() });
+                    // ✅ 加入 lockedBy 識別鎖定者身份，防止 5 分鐘後被第二人搶走時第一人仍能完成預約
+                    tx.update(slotRef, { status: 'locked', lockedAt: Date.now(), lockedBy: myUid });
                 });
             } catch (e) {
                 return Swal.fire({icon:'warning', title:'Too Slow! 🏃💨', text:'Someone else just started booking this time. Please pick another one.', customClass:{popup:'swal-saas'}});
@@ -1097,34 +1176,24 @@ function toggleBulletin() {
             
             if(!isNext || !form) {
                 // 如果家長關閉了表單，解除鎖定
-                updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
                 return;
             }
 
 
-            // --- 步驟 2: 產生並發送 Email 驗證碼 ---
+            // --- 步驟 2: 請求 GAS 產生並發送驗證碼（server-side，前端看不到驗證碼） ---
             Swal.fire({
-                title:'Sending Code...', 
+                title:'Sending Code...',
                 text: 'Please check your email.',
                 customClass:{popup:'swal-saas'},
                 didOpen:()=>Swal.showLoading(),
                 allowOutsideClick:false
             });
-            
-            const code = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiry = new Date(Date.now() + 15 * 60000).toISOString();
-            const codeKey = form.email.replace(/[.#$[\]/]/g, '_');
-            
-            try {
-                await setDoc(doc(this.db, this.paths.verifyCodes, codeKey), { code, expiry, email: form.email });
-            } catch {
-                return Swal.fire({title:'Error',text:'Could not securely save verification code.',icon:'error',customClass:{popup:'swal-saas'}});
-            }
-            
-            const gr = await callGAS({ action: "sendVerifyCode", email: form.email, code });
+
+            const gr = await callGAS({ action: "generateAndSendCode", email: form.email });
             if (!gr.ok) {
-                updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
-                return Swal.fire({title:'Error',text:'Failed to send verification email. Is your email address correct?',icon:'error',customClass:{popup:'swal-saas'}});
+                updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                return Swal.fire({title:'Error',text: gr.error || 'Failed to send verification email. Is your email address correct?',icon:'error',customClass:{popup:'swal-saas'}});
             }
 
 
@@ -1150,39 +1219,41 @@ function toggleBulletin() {
 
 
             if (!isVerified || !inputCode) {
-                updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
+                updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
                 return;
             }
 
 
-            // --- 步驟 4: 驗證代碼並執行預約 (Transaction) ---
+            // --- 步驟 4: 在 GAS server-side 驗證代碼，然後執行預約 (Transaction) ---
             Swal.fire({title:'Verifying & Reserving...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading(),allowOutsideClick:false});
-            
+
             try {
-                const codeSnap = await getDoc(doc(this.db, this.paths.verifyCodes, codeKey));
-                if (!codeSnap.exists()) {
-                    updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
-                    return Swal.fire({title:'Invalid',text:'Code not found.',icon:'error',customClass:{popup:'swal-saas'}});
+                // ✅ 驗證碼比對在 GAS 端完成，前端永遠看不到正確的驗證碼
+                const vr = await callGAS({ action: "verifyCode", email: form.email, code: inputCode });
+                if (!vr.ok) {
+                    updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                    return Swal.fire({title: vr.reason === 'expired' ? 'Expired' : vr.reason === 'incorrect' ? 'Incorrect' : 'Invalid', text: vr.error || 'Verification failed.', icon:'error', customClass:{popup:'swal-saas'}});
                 }
-                
-                const { code: storedCode, expiry: exp } = codeSnap.data();
-                if (new Date() > new Date(exp)) {
-                    updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
-                    return Swal.fire({title:'Expired',text:'Verification code expired. Please try again.',icon:'error',customClass:{popup:'swal-saas'}});
-                }
-                if (storedCode !== inputCode) {
-                    updateDoc(slotRef, { status: 'available', lockedAt: null }).catch(()=>{});
-                    return Swal.fire({title:'Incorrect',text:'Wrong verification code.',icon:'error',customClass:{popup:'swal-saas'}});
+
+
+                // ✅ 預約前檢查此 email 是否已超過預約上限
+                const existingSnap = await getDocs(query(collection(this.db, this.paths.bookings), where("email","==", form.email)));
+                if (existingSnap.size >= BOOKING_LIMIT) {
+                    updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                    return Swal.fire({title:'Limit Reached', text:`You already have ${existingSnap.size} bookings. Maximum is ${BOOKING_LIMIT}.`, icon:'warning', customClass:{popup:'swal-saas'}});
                 }
 
 
                 await runTransaction(this.db, async tx => {
                     const sf = await tx.get(slotRef);
                     if (!sf.exists() || sf.data().status === 'booked') throw "Slot unavailable";
-                    
+                    // ✅ 驗證鎖定者身份：如果 slot 處於 locked 狀態，只有原始鎖定者才能完成預約
+                    const slotData = sf.data();
+                    if (slotData.status === 'locked' && slotData.lockedBy && slotData.lockedBy !== myUid) throw "Not your lock";
+
                     const bRef = doc(collection(this.db, this.paths.bookings));
                     tx.set(bRef, {
-                        uid: this.auth.currentUser.uid,
+                        uid: myUid,
                         teacherId: tid,
                         teacherName: t.name,
                         teacherEmail: t.email || '',
@@ -1191,13 +1262,13 @@ function toggleBulletin() {
                         slotTime: timeLabel,
                         slotDate: dateLabel,
                         student: form.student,
-                        grade: form.grade, 
+                        grade: form.grade,
                         parent: form.parent,
                         email: form.email,
-                        message: form.message, 
+                        message: form.message,
                         createdAt: new Date().toISOString()
                     });
-                    tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null });
+                    tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null, lockedBy: null });
                 });
 
 
@@ -1211,25 +1282,23 @@ function toggleBulletin() {
                 }
 
 
-                deleteDoc(doc(this.db, this.paths.verifyCodes, codeKey)).catch(()=>{});
-                
                 const studentWithGrade = `${form.student} (${form.grade})`;
-                
+
                 this.writeLog('Booking Created', `Parent (${form.email}) booked ${studentWithGrade} with ${t.name} on ${dateLabel} ${timeLabel}`);
-                
+
                 callGAS({
                     action:"sendConfirmation",
                     email:form.email,
                     parent:form.parent,
-                    student:studentWithGrade, 
+                    student:studentWithGrade,
                     teacherName:t.name,
                     teacherEmail:t.email||'',
                     slotTime:timeLabel,
                     slotDate:dateLabel,
                     location:t.location||'',
-                    message:form.message 
+                    message:form.message
                 });
-                
+
                 Swal.fire({
                     title:'Booking Confirmed!',
                     html:`<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:20px;padding:24px;text-align:left;margin-top:20px;"><div style="font-weight:900;font-size:22px;color:#166534;">${escapeHtml(t.name)}</div><div style="color:var(--duo-green-dark);font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-check-circle"></i> ${escapeHtml(timeLabel)} ${dd}</div><div style="color:#166534;font-weight:700;font-size:16px;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div></div><p style="font-size:16px;color:#64748b;font-weight:700;margin-top:24px;">Confirmation sent to <strong>${escapeHtml(form.email)}</strong></p>`,
@@ -1245,23 +1314,16 @@ function toggleBulletin() {
         async showManageFlow() {
             const{value:email}=await Swal.fire({title:'My Bookings',customClass:{popup:'swal-saas swal-wide'},html:`<p style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:24px;">Enter the email used during booking.</p><input id="mg-email" class="saas-input" type="email" placeholder="your@email.com">`,confirmButtonText:'SEND CODE',showCancelButton:true,cancelButtonText:'CANCEL',focusConfirm:false,preConfirm:()=>{const e=document.getElementById('mg-email').value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return Swal.showValidationMessage('Enter a valid email');return e;}});
             if(!email)return;
+            // ✅ 改用 GAS server-side 產生 + 發送驗證碼
             Swal.fire({title:'Sending code...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            const code=Math.floor(100000+Math.random()*900000).toString();
-            const expiry=new Date(Date.now()+15*60000).toISOString();
-            const codeKey=email.replace(/[.#$[\]/]/g,'_');
-            try{await setDoc(doc(this.db,this.paths.verifyCodes,codeKey),{code,expiry,email});}
-            catch{return Swal.fire({title:'Error',text:'Could not process request.',icon:'error',customClass:{popup:'swal-saas'}});}
-            const gr=await callGAS({action:"sendVerifyCode",email,code});
-            if(!gr.ok)return Swal.fire({title:'Error',text:'Failed to send email.',icon:'error',customClass:{popup:'swal-saas'}});
+            const gr=await callGAS({action:"generateAndSendCode",email});
+            if(!gr.ok)return Swal.fire({title:'Error',text: gr.error || 'Failed to send email.',icon:'error',customClass:{popup:'swal-saas'}});
             const{value:inputCode}=await Swal.fire({title:'Check Your Email',customClass:{popup:'swal-saas swal-wide'},html:`<p style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:24px;">Enter the 6-digit code sent to<br><strong style="color:#1e293b">${escapeHtml(email)}</strong></p><input id="mg-code" class="saas-input" style="text-align:center;font-size:36px;letter-spacing:16px;font-family:monospace;font-weight:900;padding:20px;" placeholder="000000" maxlength="6" inputmode="numeric">`,confirmButtonText:'VERIFY CODE',showCancelButton:true,cancelButtonText:'CANCEL',focusConfirm:false,preConfirm:()=>{const c=document.getElementById('mg-code').value.trim();if(!/^\d{6}$/.test(c))return Swal.showValidationMessage('Enter the 6-digit code');return c;}});
             if(!inputCode)return;
-            try{
-                const snap=await getDoc(doc(this.db,this.paths.verifyCodes,codeKey));
-                if(!snap.exists())return Swal.fire({title:'Invalid',text:'Code not found.',icon:'error',customClass:{popup:'swal-saas'}});
-                const{code:stored,expiry:exp}=snap.data();
-                if(new Date()>new Date(exp))return Swal.fire({title:'Expired',text:'Code expired. Try again.',icon:'error',customClass:{popup:'swal-saas'}});
-                if(stored!==inputCode)return Swal.fire({title:'Incorrect',text:'Wrong code.',icon:'error',customClass:{popup:'swal-saas'}});
-            }catch{return Swal.fire({title:'Error',text:'Verification failed.',icon:'error',customClass:{popup:'swal-saas'}});}
+            // ✅ 改用 GAS server-side 驗證
+            Swal.fire({title:'Verifying...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
+            const vr=await callGAS({action:"verifyCode",email,code:inputCode});
+            if(!vr.ok)return Swal.fire({title: vr.reason==='expired'?'Expired':vr.reason==='incorrect'?'Incorrect':'Invalid', text: vr.error || 'Verification failed.', icon:'error', customClass:{popup:'swal-saas'}});
             await this.showBookingsForEmail(email);
         },
 
@@ -1304,7 +1366,7 @@ function toggleBulletin() {
                 // 先釋放時段
                 await runTransaction(this.db,async tx=>{
                     const s=await tx.get(sr);
-                    if(s.exists()) tx.update(sr,{status:'available',bookingRef:null,lockedAt:null});
+                    if(s.exists()) tx.update(sr,{status:'available',bookingRef:null,lockedAt:null,lockedBy:null});
                 });
                 
                 // 嘗試刪除預約紀錄
@@ -1328,7 +1390,19 @@ function toggleBulletin() {
 
 
     window.app = app;
-    document.addEventListener('DOMContentLoaded', () => app.init());
+
+    // ✅ Landing Page 模式：頁面載入時不初始化 Firebase，等使用者按 Enter 才開始
+    // 這能為「只是看看」的訪客節省 100% 的 Firebase 讀取量
+    window.startApp = function() {
+        document.getElementById('landing-page').classList.add('hidden');
+        document.getElementById('loading-overlay').classList.remove('hidden');
+        app.init();
+    };
+
+    // 如果有直接的 hash 參數（未來擴展用），可以自動跳過 Landing Page
+    if (location.hash === '#auto') {
+        document.addEventListener('DOMContentLoaded', () => window.startApp());
+    }
 </script>
 </body>
 </html>
