@@ -588,9 +588,9 @@ function toggleBulletin() {
     };
 
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycby3RubeWMCKvRKOdel2oD-XLppwvem5QXOB42OLISNty0uwVdrWJAyEZa7YLiPUTwAl/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzrwjb06brKH8io6ZzJQEz7JN12PUUWa2Rz2eroy6-g7G_kbSKJkC6fF2096GvrGVsw/exec";
     // ✅ GAS Secret Token（必須和 GAS 端的 CONFIG.API_SECRET 一致）
-    const GAS_SECRET = "artmrmbniemmoegrgr";
+    const GAS_SECRET = "IBSH-PTA-2026-SECRET-CHANGE-ME";
 
 
     function escapeHtml(t) {
@@ -1169,10 +1169,13 @@ function toggleBulletin() {
                 await runTransaction(this.db, async tx => {
                     const sf = await tx.get(slotRef);
                     const data = sf.data();
-                    if (!sf.exists() || data.status === 'booked' || (data.status === 'locked' && Date.now() - (data.lockedAt || 0) < 300000)) {
-                        throw "unavailable";
+                    if (!sf.exists() || data.status === 'booked') throw "unavailable";
+                    // ✅ 修復：如果是自己鎖的，允許重新鎖定（解決取消後重新預約的問題）
+                    if (data.status === 'locked') {
+                        const isMyLock = data.lockedBy === myUid;
+                        const isExpired = Date.now() - (data.lockedAt || 0) >= 300000;
+                        if (!isMyLock && !isExpired) throw "unavailable"; // 別人鎖的且沒過期
                     }
-                    // ✅ 加入 lockedBy 識別鎖定者身份，防止 5 分鐘後被第二人搶走時第一人仍能完成預約
                     tx.update(slotRef, { status: 'locked', lockedAt: Date.now(), lockedBy: myUid });
                 });
             } catch (e) {
@@ -1230,7 +1233,7 @@ function toggleBulletin() {
             
             if(!isNext || !form) {
                 // 如果家長關閉了表單，解除鎖定
-                updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                 return;
             }
 
@@ -1246,7 +1249,7 @@ function toggleBulletin() {
 
             const gr = await callGAS({ action: "generateAndSendCode", email: form.email });
             if (!gr.ok) {
-                updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                 return Swal.fire({title:'Error',text: gr.error || 'Failed to send verification email. Is your email address correct?',icon:'error',customClass:{popup:'swal-saas'}});
             }
 
@@ -1273,7 +1276,7 @@ function toggleBulletin() {
 
 
             if (!isVerified || !inputCode) {
-                updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                 return;
             }
 
@@ -1285,7 +1288,7 @@ function toggleBulletin() {
                 // ✅ 驗證碼比對在 GAS 端完成，前端永遠看不到正確的驗證碼
                 const vr = await callGAS({ action: "verifyCode", email: form.email, code: inputCode });
                 if (!vr.ok) {
-                    updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                     return Swal.fire({title: vr.reason === 'expired' ? 'Expired' : vr.reason === 'incorrect' ? 'Incorrect' : 'Invalid', text: vr.error || 'Verification failed.', icon:'error', customClass:{popup:'swal-saas'}});
                 }
 
@@ -1293,7 +1296,7 @@ function toggleBulletin() {
                 // ✅ 預約前檢查此 email 是否已超過預約上限
                 const existingSnap = await getDocs(query(collection(this.db, this.paths.bookings), where("email","==", form.email)));
                 if (existingSnap.size >= BOOKING_LIMIT) {
-                    updateDoc(slotRef, { status: 'available', lockedAt: null, lockedBy: null }).catch(()=>{});
+                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                     return Swal.fire({title:'Limit Reached', text:`You already have ${existingSnap.size} bookings. Maximum is ${BOOKING_LIMIT}.`, icon:'warning', customClass:{popup:'swal-saas'}});
                 }
 
