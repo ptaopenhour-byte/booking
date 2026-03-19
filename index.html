@@ -589,6 +589,8 @@ function toggleBulletin() {
 
 
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzrwjb06brKH8io6ZzJQEz7JN12PUUWa2Rz2eroy6-g7G_kbSKJkC6fF2096GvrGVsw/exec";
+    // ✅ GAS Secret Token（必須和 GAS 端的 CONFIG.API_SECRET 一致）
+    const GAS_SECRET = "IBSH-PTA-2026-SECRET-CHANGE-ME";
 
 
     function escapeHtml(t) {
@@ -622,8 +624,9 @@ function toggleBulletin() {
 
 
     async function callGAS(payload) {
-        // ✅ 優先使用 Firestore 裡的 GAS URL（管理員可在後台更換），否則 fallback 到硬編碼的
         const url = window._GAS_URL || GAS_URL;
+        // ✅ 自動附加 secret token，GAS 端會驗證
+        payload.secret = GAS_SECRET;
         try { const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(payload)}); return await r.json(); }
         catch(e) { return {ok:false}; }
     }
