@@ -588,7 +588,7 @@ function toggleBulletin() {
     };
 
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycby3RubeWMCKvRKOdel2oD-XLppwvem5QXOB42OLISNty0uwVdrWJAyEZa7YLiPUTwAl/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzrwjb06brKH8io6ZzJQEz7JN12PUUWa2Rz2eroy6-g7G_kbSKJkC6fF2096GvrGVsw/exec";
     // ✅ GAS Secret Token（必須和 GAS 端的 CONFIG.API_SECRET 一致）
     const GAS_SECRET = "artmrmbniemmoegrgr";
 
@@ -1385,7 +1385,20 @@ function toggleBulletin() {
                 // ✅ 預約前檢查此 email 是否已超過預約上限
                 // Firestore rules 目前只允許家長查自己的 uid，因此先查自己的 bookings 再比對 email。
                 const existingSnap = await getDocs(query(collection(this.db, this.paths.bookings), where("uid","==", myUid)));
-                const existingCount = existingSnap.docs.filter(d => normalizeEmail(d.data().email) === normalizeEmail(form.email)).length;
+                const sameEmailBookings = existingSnap.docs.filter(d => normalizeEmail(d.data().email) === normalizeEmail(form.email));
+                const hasSameTeacherBooking = sameEmailBookings.some(d => d.data().teacherId === tid);
+                const existingCount = sameEmailBookings.length;
+
+                if (hasSameTeacherBooking) {
+                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
+                    return Swal.fire({
+                        title:'Already Booked',
+                        text:`You already have a booking with ${t.name}. Only one time slot per teacher is allowed.`,
+                        icon:'warning',
+                        customClass:{popup:'swal-saas'}
+                    });
+                }
+
                 if (existingCount >= BOOKING_LIMIT) {
                     runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                     return Swal.fire({title:'Limit Reached', text:`You already have ${existingCount} bookings. Maximum is ${BOOKING_LIMIT}.`, icon:'warning', customClass:{popup:'swal-saas'}});
