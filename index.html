@@ -631,8 +631,22 @@ function toggleBulletin() {
         const url = window._GAS_URL || GAS_URL;
         // ✅ 自動附加 secret token，GAS 端會驗證
         payload.secret = GAS_SECRET;
-        try { const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(payload)}); return await r.json(); }
-        catch(e) { return {ok:false}; }
+        try {
+            const r = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            });
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                return { ok: false, error: text || `HTTP ${r.status}` };
+            }
+        }
+        catch(e) {
+            return { ok:false, error: e?.message || 'Network error' };
+        }
     }
     // ✅ 新增：防抖函式，避免搜尋每打一個字就觸發重新渲染
     function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
