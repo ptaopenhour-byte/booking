@@ -590,7 +590,7 @@ function toggleBulletin() {
 
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzrwjb06brKH8io6ZzJQEz7JN12PUUWa2Rz2eroy6-g7G_kbSKJkC6fF2096GvrGVsw/exec";
     // ✅ GAS Secret Token（必須和 GAS 端的 CONFIG.API_SECRET 一致）
-    const GAS_SECRET = "artmrmbniemmoegrgr";
+    const GAS_SECRET = "IBSH-PTA-2026-SECRET-CHANGE-ME";
 
 
     function escapeHtml(t) {
@@ -1095,10 +1095,15 @@ function toggleBulletin() {
             } else {
                 for(const[date,ds]of Object.entries(byDate)){
                     const lbl=date==='General'?'':`<div class="date-label"><i class="far fa-calendar-alt"></i> ${escapeHtml(date)}</div>`;
+                    const currentUid = this.auth?.currentUser?.uid;
                     const btns=ds.map(s=>{
                         if (s.status === 'booked') {
                             return `<button disabled class="slot-btn slot-booked">${escapeHtml(s.time)}</button>`;
                         } else if (s.status === 'locked' && (Date.now() - (s.lockedAt || 0) < 300000)) {
+                            // ✅ 修復：如果是自己鎖的，顯示為可點擊（允許重新預約）
+                            if (s.lockedBy === currentUid) {
+                                return `<button class="slot-btn slot-available" data-tid="${escapeHtml(t.id)}" data-sid="${escapeHtml(s.id)}" data-time="${escapeHtml(s.time)}" data-date="${escapeHtml(date)}" style="border-color:var(--duo-blue);color:var(--duo-blue);">${escapeHtml(s.time)} <i class="fas fa-redo" style="font-size:10px;"></i></button>`;
+                            }
                             return `<button disabled class="slot-btn slot-locked">Booking <i class="fas fa-spinner"></i></button>`;
                         } else {
                             return `<button class="slot-btn slot-available" data-tid="${escapeHtml(t.id)}" data-sid="${escapeHtml(s.id)}" data-time="${escapeHtml(s.time)}" data-date="${escapeHtml(date)}">${escapeHtml(s.time)}</button>`;
@@ -1238,44 +1243,110 @@ function toggleBulletin() {
             }
 
 
-            // --- 步驟 2: 請求 GAS 產生並發送驗證碼（server-side，前端看不到驗證碼） ---
-            Swal.fire({
-                title:'Sending Code...',
-                text: 'Please check your email.',
-                customClass:{popup:'swal-saas'},
-                didOpen:()=>Swal.showLoading(),
-                allowOutsideClick:false
-            });
+            // --- 步驟 2 & 3: 驗證碼迴圈（✅ 允許重新輸入 email） ---
+            let verified = false;
+            let inputCode = null;
+            let verifyAttempts = 0;
+            const MAX_RETRY = 3;
 
-            const gr = await callGAS({ action: "generateAndSendCode", email: form.email });
-            if (!gr.ok) {
-                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                return Swal.fire({title:'Error',text: gr.error || 'Failed to send verification email. Is your email address correct?',icon:'error',customClass:{popup:'swal-saas'}});
+            while (!verified && verifyAttempts < MAX_RETRY) {
+                verifyAttempts++;
+
+                // --- 步驟 2: 請求 GAS 產生並發送驗證碼 ---
+                Swal.fire({
+                    title:'Sending Code...',
+                    text: `Sending to ${form.email}`,
+                    customClass:{popup:'swal-saas'},
+                    didOpen:()=>Swal.showLoading(),
+                    allowOutsideClick:false
+                });
+
+                const gr = await callGAS({ action: "generateAndSendCode", email: form.email });
+                if (!gr.ok) {
+                    // ✅ 發送失敗 → 讓家長選擇「修改 email」或「取消」
+                    const retry = await Swal.fire({
+                        title:'Email Error',
+                        text: gr.error || 'Failed to send verification email.',
+                        icon:'error',
+                        customClass:{popup:'swal-saas'},
+                        showCancelButton: true,
+                        confirmButtonText: '✏️ Change Email',
+                        cancelButtonText: 'Cancel Booking',
+                        confirmButtonColor: '#1CB0F6'
+                    });
+                    if (retry.isConfirmed) {
+                        // ✅ 讓家長重新輸入 email
+                        const {value: newEmail} = await Swal.fire({
+                            title: 'Correct Your Email',
+                            customClass: {popup:'swal-saas'},
+                            input: 'email',
+                            inputValue: form.email,
+                            inputPlaceholder: 'your@email.com',
+                            showCancelButton: true,
+                            confirmButtonText: 'Resend Code',
+                            inputValidator: v => { if(!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Please enter a valid email'; }
+                        });
+                        if (newEmail) { form.email = newEmail.trim().toLowerCase(); continue; }
+                    }
+                    // 取消預約 → 解鎖
+                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
+                    return;
+                }
+
+                // --- 步驟 3: 輸入驗證碼（✅ 加入「重新輸入 email」按鈕） ---
+                const verifyResult = await Swal.fire({
+                    title: 'Verify Email',
+                    customClass: { popup: 'swal-saas swal-wide' },
+                    html: `
+                        <p style="font-size:16px;font-weight:700;color:#64748b;margin-bottom:8px;">We sent a 6-digit code to:</p>
+                        <p style="font-size:18px;font-weight:900;color:#1e293b;margin-bottom:20px;">${escapeHtml(form.email)}</p>
+                        <input id="book-verify-code" class="saas-input" style="text-align:center;font-size:32px;letter-spacing:12px;font-family:monospace;font-weight:900;padding:16px;" placeholder="000000" maxlength="6" inputmode="numeric">
+                        <p style="font-size:13px;color:#94a3b8;margin-top:12px;">Check your inbox (and spam folder).</p>
+                        <button type="button" id="btn-change-email" style="margin-top:16px;background:none;border:none;color:#1CB0F6;font-weight:800;font-size:14px;cursor:pointer;text-decoration:underline;">Wrong email? Click to change ✏️</button>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'VERIFY & BOOK',
+                    cancelButtonText: 'CANCEL',
+                    focusConfirm: false,
+                    didOpen: () => {
+                        document.getElementById('btn-change-email').addEventListener('click', () => {
+                            Swal.close({ dismiss: 'change-email' });
+                        });
+                    },
+                    preConfirm: () => {
+                        const c = document.getElementById('book-verify-code').value.trim();
+                        if (!/^\d{6}$/.test(c)) return Swal.showValidationMessage('Please enter the 6-digit code');
+                        return c;
+                    }
+                });
+
+                // ✅ 按了「Wrong email? Click to change」
+                if (verifyResult.dismiss === 'change-email' || (verifyResult.dismiss && !verifyResult.isConfirmed)) {
+                    if (verifyResult.dismiss === 'change-email') {
+                        const {value: newEmail} = await Swal.fire({
+                            title: 'Correct Your Email',
+                            customClass: {popup:'swal-saas'},
+                            input: 'email',
+                            inputValue: form.email,
+                            inputPlaceholder: 'your@email.com',
+                            showCancelButton: true,
+                            confirmButtonText: 'Resend Code',
+                            inputValidator: v => { if(!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Please enter a valid email'; }
+                        });
+                        if (newEmail) { form.email = newEmail.trim().toLowerCase(); continue; }
+                    }
+                    // 按了 CANCEL → 解鎖
+                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
+                    return;
+                }
+
+                if (verifyResult.isConfirmed && verifyResult.value) {
+                    inputCode = verifyResult.value;
+                    verified = true;
+                }
             }
 
-
-            // --- 步驟 3: 輸入驗證碼 ---
-            const { value: inputCode, isConfirmed: isVerified } = await Swal.fire({
-                title: 'Verify Email',
-                customClass: { popup: 'swal-saas swal-wide' },
-                html: `
-                    <p style="font-size:16px;font-weight:700;color:#64748b;margin-bottom:20px;">We sent a 6-digit code to <strong style="color:#1e293b">${escapeHtml(form.email)}</strong>.</p>
-                    <input id="book-verify-code" class="saas-input" style="text-align:center;font-size:32px;letter-spacing:12px;font-family:monospace;font-weight:900;padding:16px;" placeholder="000000" maxlength="6" inputmode="numeric">
-                    <p style="font-size:13px;color:#94a3b8;margin-top:12px;">Please check your inbox (and spam folder).</p>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'VERIFY & BOOK',
-                cancelButtonText: 'CANCEL',
-                focusConfirm: false,
-                preConfirm: () => {
-                    const c = document.getElementById('book-verify-code').value.trim();
-                    if (!/^\d{6}$/.test(c)) return Swal.showValidationMessage('Please enter the 6-digit code');
-                    return c;
-                }
-            });
-
-
-            if (!isVerified || !inputCode) {
+            if (!verified || !inputCode) {
                 runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                 return;
             }
@@ -1325,7 +1396,8 @@ function toggleBulletin() {
                         message: form.message,
                         createdAt: new Date().toISOString()
                     });
-                    tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null, lockedBy: null });
+                    // ✅ 修復：保留 lockedBy 作為預約者身份，取消時 rules 會驗證
+                    tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null });
                 });
 
 
@@ -1423,7 +1495,13 @@ function toggleBulletin() {
                 // 先釋放時段
                 await runTransaction(this.db,async tx=>{
                     const s=await tx.get(sr);
-                    if(s.exists()) tx.update(sr,{status:'available',bookingRef:null,lockedAt:null,lockedBy:null});
+                    // ✅ 修復：不清除 lockedBy，因為 rules 需要它來驗證「只有預約者能取消」
+                    // lockedBy 會在下次有人鎖定此 slot 時被覆蓋
+                    if(s.exists() && s.data().lockedBy === this.auth.currentUser.uid) {
+                        tx.update(sr,{status:'available',bookingRef:null,lockedAt:null});
+                    } else if(s.exists()) {
+                        throw "Not your booking";
+                    }
                 });
                 
                 // 嘗試刪除預約紀錄
