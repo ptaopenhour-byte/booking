@@ -588,7 +588,7 @@ function toggleBulletin() {
     };
 
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzgmBcVT4Ty7nVXZlI0KRJqJMXhz4pSENAENXPRwpFEgkE5QdDtlgscSfCfxbP5VjHU/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzrwjb06brKH8io6ZzJQEz7JN12PUUWa2Rz2eroy6-g7G_kbSKJkC6fF2096GvrGVsw/exec";
 
 
     function escapeHtml(t) {
@@ -660,6 +660,36 @@ function toggleBulletin() {
     // ✅ localStorage 快取 TTL（5 分鐘）
     const CACHE_TTL = 5 * 60 * 1000;
 
+    // ✅ 防刷機制：限制 Firebase 呼叫頻率
+    const RateLimiter = {
+        _calls: {},       // { key: [timestamp, timestamp, ...] }
+        MAX_CALLS: 15,    // 每個 key 在 window 內最多呼叫次數
+        WINDOW_MS: 60000, // 60 秒視窗
+        COOLDOWN_MS: 120000, // 觸發限制後冷卻 2 分鐘
+
+        check(key = 'global') {
+            const now = Date.now();
+            // 檢查是否在冷卻期
+            const cooldownKey = `rl_cooldown_${key}`;
+            const cooldownUntil = parseInt(sessionStorage.getItem(cooldownKey) || '0');
+            if (now < cooldownUntil) {
+                console.warn(`🛑 Rate limited: ${key} (cooldown until ${new Date(cooldownUntil).toLocaleTimeString()})`);
+                return false;
+            }
+            // 清除過期記錄
+            if (!this._calls[key]) this._calls[key] = [];
+            this._calls[key] = this._calls[key].filter(t => now - t < this.WINDOW_MS);
+            // 檢查是否超過上限
+            if (this._calls[key].length >= this.MAX_CALLS) {
+                sessionStorage.setItem(cooldownKey, (now + this.COOLDOWN_MS).toString());
+                console.warn(`🛑 Rate limit triggered for: ${key}. Cooling down ${this.COOLDOWN_MS/1000}s`);
+                return false;
+            }
+            this._calls[key].push(now);
+            return true;
+        }
+    };
+
     const app = {
         db: null, auth: null,
         paths: {
@@ -705,6 +735,12 @@ function toggleBulletin() {
 
         async checkSystemConfig() {
             try {
+                // ✅ 防刷：限制 config 讀取頻率
+                if (!RateLimiter.check('config')) {
+                    this.revealPage();
+                    this.showEmpty("Too Many Requests", "Please wait a moment and try again.");
+                    return;
+                }
                 const snap = await getDoc(doc(this.db, this.paths.config));
                 if (snap.exists()) {
                     const { start, end, announcement, gasUrl } = snap.data();
@@ -794,7 +830,8 @@ function toggleBulletin() {
 
         async writeLog(action, details) {
             try {
-                // ✅ 這裡現在可以正常使用 addDoc 了！
+                // ✅ 防刷：限制 log 寫入頻率，避免被惡意灌入大量 log
+                if (!RateLimiter.check('logs')) { console.warn("Log rate limited"); return; }
                 await addDoc(collection(this.db, this.paths.logs), {
                     action: action,
                     details: details,
@@ -818,6 +855,13 @@ function toggleBulletin() {
                     this.revealPage();
                     this.renderSubjects(this.data.teachers);
                     console.log('✅ Loaded from cache, 0 Firebase reads');
+                    return;
+                }
+
+                // ✅ 防刷：快取失效時才會走到這裡，限制讀取頻率
+                if (!RateLimiter.check('teachers')) {
+                    this.revealPage();
+                    this.showEmpty("Too Many Requests", "You're refreshing too fast. Please wait a moment.");
                     return;
                 }
 
@@ -970,8 +1014,9 @@ function toggleBulletin() {
             if(!list.length){c.innerHTML='<div style="text-align:center;grid-column:1/-1;padding:60px;color:#94a3b8;font-weight:800;font-size:20px;">No teachers found.</div>';return;}
             
             list.forEach((t,i)=>{
-                const av = t.image && t.image.startsWith('data:image') 
-                    ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">` 
+                // ✅ 修復：同時支援 Firebase Storage URL 和 base64
+                const av = t.image && (t.image.startsWith('data:image') || t.image.startsWith('https://'))
+                    ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">`
                     : getMascotSVG(t.mascot||0);
                 
                 const card = document.createElement('div');
@@ -1010,6 +1055,11 @@ function toggleBulletin() {
 
 
             // 設置即時監聽器，讓其他家長點擊時，畫面能立刻更新「Booking...」狀態
+            // ✅ 防刷：限制 slot 監聽建立的頻率
+            if (!RateLimiter.check('slots')) {
+                Swal.fire({icon:'warning', title:'Slow down!', text:'You are switching teachers too fast. Please wait a moment.', timer:3000, showConfirmButton:false});
+                return;
+            }
             if (this.slotSnapshotUnsubscribe) this.slotSnapshotUnsubscribe();
             this.slotSnapshotUnsubscribe = onSnapshot(collection(this.db, `${this.paths.teachersCollection}/${t.id}/slots`), ss => {
                 t.slots = [];
@@ -1055,10 +1105,11 @@ function toggleBulletin() {
                 }
             }
             
-            const av = t.image && t.image.startsWith('data:image') 
-                ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">` 
+            // ✅ 修復：同時支援 Firebase Storage URL 和 base64
+            const av = t.image && (t.image.startsWith('data:image') || t.image.startsWith('https://'))
+                ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">`
                 : getMascotSVG(t.mascot||0);
-            
+
             const noteHtml = t.note ? `
                 <div class="teacher-resume-note" style="margin-top: 24px;">
                     <div class="note-title"><i class="fas fa-info-circle"></i> About Teacher</div>
