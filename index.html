@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IBSH PTA Open Hour</title>
     <!-- Favicon 貓頭鷹 -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦉</text></svg>">
+    <link rel="icon" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
@@ -368,7 +368,7 @@
             content:''; position:absolute; top:0; left:0; right:0; height:8px;
             background: linear-gradient(90deg, var(--duo-blue), var(--duo-green), var(--duo-orange));
         }
-        .landing-mascot { font-size: 96px; margin-bottom: 24px; }
+        .landing-mascot { width: 120px; height: 120px; margin-bottom: 24px; object-fit: contain; }
         .landing-title { font-size: clamp(28px, 6vw, 42px); font-weight: 900; color: #1e293b; margin-bottom: 12px; letter-spacing: -1px; }
         .landing-desc { font-size: clamp(15px, 3vw, 18px); font-weight: 700; color: #64748b; line-height: 1.6; margin-bottom: 32px; }
         .landing-enter-btn {
@@ -390,7 +390,7 @@
 <!-- ═══ Landing Page (0 Firebase reads) ═══ -->
 <div id="landing-page">
     <div class="landing-card">
-        <div class="landing-mascot doodle-bounce">🦉</div>
+        <img src="logo.png" alt="IBSH Logo" class="landing-mascot">
         <h1 class="landing-title">IBSH PTA Open Hour</h1>
         <p class="landing-desc">Book a one-on-one meeting with your child's teachers.<br>Quick, easy, and hassle-free!</p>
         <button class="landing-enter-btn" onclick="window.startApp()">
@@ -402,8 +402,8 @@
 
 
 <div id="loading-overlay" class="hidden">
-    <div class="doodle-bounce" style="font-size:80px;">🦉</div>
-    <div style="font-weight:900;color:var(--duo-green);font-size:24px;letter-spacing:1px;text-transform:uppercase;">Waking up owls...</div>
+    <img src="logo.png" alt="IBSH Logo" style="width:80px;height:80px;object-fit:contain;">
+    <div style="font-weight:900;color:var(--duo-green);font-size:24px;letter-spacing:1px;text-transform:uppercase;">Loading...</div>
 </div>
 
 
@@ -588,7 +588,7 @@ function toggleBulletin() {
     };
 
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycby3RubeWMCKvRKOdel2oD-XLppwvem5QXOB42OLISNty0uwVdrWJAyEZa7YLiPUTwAl/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzrwjb06brKH8io6ZzJQEz7JN12PUUWa2Rz2eroy6-g7G_kbSKJkC6fF2096GvrGVsw/exec";
     // ✅ GAS Secret Token（必須和 GAS 端的 CONFIG.API_SECRET 一致）
     const GAS_SECRET = "artmrmbniemmoegrgr";
 
