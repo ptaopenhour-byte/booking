@@ -671,11 +671,54 @@ function toggleBulletin() {
             return { ok:false, error: e?.message || 'Network error' };
         }
     }
+    const APP_TIMEZONE = 'Asia/Taipei';
+
     // ✅ 新增：防抖函式，避免搜尋每打一個字就觸發重新渲染
     function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+    function parseConfigDate(value) {
+        if (!value) return null;
+        if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+        if (typeof value?.toDate === 'function') {
+            const dt = value.toDate();
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+        if (typeof value === 'number') {
+            const dt = new Date(value);
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+        if (typeof value !== 'string') return null;
+
+        const raw = value.trim();
+        if (!raw) return null;
+
+        // 若後台已存完整 ISO 字串（含 Z 或時區 offset），直接使用。
+        if (/[zZ]$|[+\-]\d{2}:\d{2}$/.test(raw)) {
+            const dt = new Date(raw);
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+
+        // 若未帶時區，視為台北時間，避免瀏覽器依本地時區亂猜。
+        const normalized = raw.replace(/\//g, '-').replace('T', ' ').replace(/\s+/g, ' ');
+        const match = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?$/);
+        if (match) {
+            const [, year, month, day, hour = '0', minute = '0', second = '0'] = match;
+            const isoTaipei =
+                `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T` +
+                `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}+08:00`;
+            const dt = new Date(isoTaipei);
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+
+        const fallback = new Date(raw);
+        return isNaN(fallback.getTime()) ? null : fallback;
+    }
+
     function formatDateTime(str) {
         if (!str) return '—';
-        try { return new Date(str).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}); }
+        const dt = parseConfigDate(str);
+        if (!dt) return typeof str === 'string' ? str : '—';
+        try { return dt.toLocaleString('en-US',{ timeZone: APP_TIMEZONE, month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true }); }
         catch { return str; }
     }
 
@@ -790,14 +833,17 @@ function toggleBulletin() {
                     const { start, end, announcement, gasUrl } = snap.data();
                     if (gasUrl) window._GAS_URL = gasUrl;
                     renderBulletin({ start, end, announcement });
-                    const now = new Date(), s = new Date(start), e = new Date(end);
-                    if (now >= s && now <= e) {
-                        this.isOpen = true;
-                        this.setStatus('open');
-                        this.setBadge('open','Booking Open Now');
+                    const nowMs = Date.now();
+                    const s = parseConfigDate(start);
+                    const e = parseConfigDate(end);
+
+                    if (!s || !e) {
+                        console.warn('Invalid system_settings start/end. Falling back to open mode.', { start, end });
+                        this.activateOpenState({ bypassRateLimit: true });
+                    } else if (nowMs >= s.getTime() && nowMs <= e.getTime()) {
+                        this.activateOpenState();
                         this.startCountdown(e, 'close');
-                        this.loadSchedule();
-                    } else if (now < s) {
+                    } else if (nowMs < s.getTime()) {
                         this.isOpen = false;
                         this.setStatus('soon');
                         this.setBadge('soon','Opening Soon');
@@ -822,6 +868,15 @@ function toggleBulletin() {
             }
         },
 
+        activateOpenState(options = {}) {
+            this.isOpen = true;
+            this.setStatus('open');
+            this.setBadge('open','Booking Open Now');
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('board-toolbar').style.display = 'flex';
+            this.loadSchedule(options);
+        },
+
 
         setStatus(state) {
             const p = document.getElementById('status-pill');
@@ -843,7 +898,13 @@ function toggleBulletin() {
             label.innerText = mode === 'close' ? 'Closes in' : 'Opens in';
             if (this.countdownTimer) clearInterval(this.countdownTimer);
             const tick = () => {
-                const diff = target - new Date();
+                const targetMs = target instanceof Date ? target.getTime() : parseConfigDate(target)?.getTime();
+                if (!targetMs) {
+                    clearInterval(this.countdownTimer);
+                    box.classList.add('hidden');
+                    return;
+                }
+                const diff = targetMs - Date.now();
                 if (diff <= 0) {
                     clearInterval(this.countdownTimer); box.classList.add('hidden');
                     if (mode === 'close') { 
@@ -855,7 +916,7 @@ function toggleBulletin() {
                         // 強制關閉任何可能開著的輸入框防呆
                         if(Swal.isVisible()) Swal.close();
                     } else {
-                        location.reload();
+                        this.activateOpenState({ bypassRateLimit: true });
                     }
                     return;
                 }
@@ -888,8 +949,9 @@ function toggleBulletin() {
 
 
         // ✅ 已優化：先從 localStorage 讀取快取，過期才向 Firebase 拉資料，大幅減少讀取量
-        async loadSchedule() {
+        async loadSchedule(options = {}) {
             try {
+                const { bypassRateLimit = false } = options;
                 // 嘗試從快取載入
                 const cached = localStorage.getItem('pta_teachers');
                 const cacheTime = parseInt(localStorage.getItem('pta_teachers_ts') || '0');
@@ -903,7 +965,7 @@ function toggleBulletin() {
                 }
 
                 // ✅ 防刷：快取失效時才會走到這裡，限制讀取頻率
-                if (!RateLimiter.check('teachers')) {
+                if (!bypassRateLimit && !RateLimiter.check('teachers')) {
                     this.revealPage();
                     this.showEmpty("Too Many Requests", "You're refreshing too fast. Please wait a moment.");
                     return;
