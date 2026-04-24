@@ -1573,8 +1573,23 @@ function toggleBulletin() {
             if(!inputCode)return;
             // ✅ 改用 GAS server-side 驗證
             Swal.fire({title:'Verifying...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            const vr=await callGAS({action:"verifyCode",email,code:inputCode});
+            const vr=await callGAS({action:"verifyCode",email,code:inputCode,uid:this.auth.currentUser.uid});
+            console.log('[verifyCode] GAS response:', vr);
             if(!vr.ok)return Swal.fire({title: vr.reason==='expired'?'Expired':vr.reason==='incorrect'?'Incorrect':'Invalid', text: vr.error || 'Verification failed.', icon:'error', customClass:{popup:'swal-saas'}});
+
+            // ✅ 等 1 秒 + 強制刷新 token，重試最多 3 次直到 verifiedEmail claim 出現
+            Swal.fire({title:'Loading bookings...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
+            const targetEmail = normalizeEmail(email);
+            let claimReady = false;
+            for(let i=0;i<3;i++){
+                await new Promise(r=>setTimeout(r,1000));
+                const tokenResult = await this.auth.currentUser.getIdTokenResult(true);
+                console.log(`[verifyCode] attempt ${i+1} claims:`, tokenResult.claims);
+                if(tokenResult.claims.verifiedEmail === targetEmail){ claimReady = true; break; }
+            }
+            if(!claimReady){
+                return Swal.fire({title:'Verification claim not ready', text:'Custom claim was not set. Check GAS executions log for setVerifiedEmailClaim_ errors.', icon:'error', customClass:{popup:'swal-saas'}});
+            }
             await this.showBookingsForEmail(email);
         },
 
@@ -1582,9 +1597,9 @@ function toggleBulletin() {
         async showBookingsForEmail(email) {
             Swal.fire({title:'Loading...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
             try{
-                // Firestore rules 不允許匿名家長直接用 email query；先用 uid 查，再在前端過濾。
-                const snap=await getDocs(query(collection(this.db,this.paths.bookings),where("uid","==",this.auth.currentUser.uid)));
-                const docs = snap.docs.filter(d => normalizeEmail(d.data().email) === normalizeEmail(email));
+                // ✅ 直接用 email 查；Firestore rules 透過 verifiedEmail custom claim 驗證授權
+                const snap=await getDocs(query(collection(this.db,this.paths.bookings),where("email","==",normalizeEmail(email))));
+                const docs = snap.docs;
                 if(!docs.length)return Swal.fire({title:'No Bookings',text:`No active bookings found for ${email}.`,icon:'info',customClass:{popup:'swal-saas'}});
                 let html=`<div style="text-align:left;display:flex;flex-direction:column;gap:16px;max-height:400px;overflow-y:auto;padding:4px 8px 4px 4px;">`;
                 
@@ -1605,7 +1620,13 @@ function toggleBulletin() {
                 });
                 html+=`</div>`;
                 Swal.fire({title:'Manage Bookings',html,showConfirmButton:true,confirmButtonText:'DONE',width:700,customClass:{popup:'swal-saas swal-wide'},didOpen:()=>{document.querySelectorAll('.cancel-btn').forEach(btn=>{btn.addEventListener('mouseover',()=>btn.style.background='#fee2e2');btn.addEventListener('mouseout',()=>btn.style.background='#fef2f2');btn.addEventListener('click',()=>this.cancelByParent(btn.dataset,email));});}});
-            }catch{Swal.fire({title:'Error',text:'Could not load bookings.',icon:'error',customClass:{popup:'swal-saas'}});}
+            }catch(e){
+                console.error('[showBookingsForEmail] error:', e);
+                const msg = e?.code === 'permission-denied'
+                    ? `Firestore rules rejected the query. Likely cause: verifiedEmail claim mismatch. (${e.message})`
+                    : (e?.message || 'Could not load bookings.');
+                Swal.fire({title:'Error',text:msg,icon:'error',customClass:{popup:'swal-saas'}});
+            }
         },
 
 
