@@ -405,6 +405,246 @@
         .landing-enter-btn:hover { transform: translateY(-3px); filter: brightness(1.05); box-shadow: 0 8px 24px rgba(88,204,2,0.3); }
         .landing-enter-btn:active { transform: translateY(3px); border-bottom-width: 0px; margin-bottom: 5px; }
         .landing-footer { margin-top: 24px; font-size: 13px; font-weight: 700; color: #94a3b8; }
+
+        /* ═══ LOGIN GATE ═══ */
+        #login-gate {
+            position: fixed; inset: 0; z-index: 998;
+            background: var(--bg-body);
+            background-image:
+                radial-gradient(circle at top left, rgba(28, 176, 246, 0.12), transparent 40%),
+                radial-gradient(circle at bottom right, rgba(255, 150, 0, 0.12), transparent 40%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 24px; text-align: center;
+        }
+        #login-gate.hidden { display: none; }
+        .gate-card {
+            background: white; border-radius: 32px; padding: clamp(36px, 6vw, 56px) clamp(24px, 5vw, 48px);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.08); border: 3px solid #f1f5f9;
+            max-width: 480px; width: 100%; position: relative; overflow: hidden;
+        }
+        .gate-card::before {
+            content:''; position:absolute; top:0; left:0; right:0; height:8px;
+            background: linear-gradient(90deg, var(--duo-blue), var(--duo-green), var(--duo-orange));
+        }
+        .gate-icon { font-size: 64px; margin-bottom: 20px; }
+        .gate-title { font-size: clamp(24px, 5vw, 32px); font-weight: 900; color: #1e293b; margin-bottom: 12px; }
+        .gate-desc { font-size: clamp(14px, 2.5vw, 16px); font-weight: 700; color: #64748b; line-height: 1.6; margin-bottom: 28px; }
+        .gate-input {
+            width: 100%; padding: 16px 20px;
+            border: 2px solid #e2e8f0; border-radius: 16px;
+            font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px;
+            background: #f8fafc; outline: none; transition: .2s;
+            text-align: center; margin-bottom: 16px;
+        }
+        .gate-input:focus { border-color: var(--duo-blue); background: white; box-shadow: 0 0 0 4px rgba(28,176,246,.15); }
+        .gate-input.code-input { font-family: monospace; font-size: 32px; letter-spacing: 12px; padding: 18px; }
+        .gate-btn {
+            width: 100%;
+            background: var(--duo-blue); color: white; border: none;
+            padding: 16px 32px; border-radius: 24px; font-weight: 900; font-size: 18px;
+            border-bottom: 4px solid var(--duo-blue-dark);
+            cursor: pointer; transition: all .15s cubic-bezier(0.34,1.56,0.64,1);
+            font-family: 'Nunito', sans-serif; text-transform: uppercase; letter-spacing: 1px;
+            margin-top: 8px;
+        }
+        .gate-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+        .gate-btn:active { transform: translateY(2px); border-bottom-width: 0px; margin-bottom: 4px; }
+        .gate-btn:disabled { background: #cbd5e1 !important; border-bottom-color: #94a3b8 !important; cursor: not-allowed; transform: none !important; }
+        .gate-link { background: none; border: none; color: var(--duo-blue); font-weight: 800; font-size: 14px; cursor: pointer; text-decoration: underline; margin-top: 16px; font-family: 'Nunito', sans-serif; }
+        .gate-error { color: #ef4444; font-weight: 800; font-size: 14px; margin-top: 12px; min-height: 20px; }
+        .gate-step { display: none; }
+        .gate-step.active { display: block; }
+        .gate-email-display { background: #f1f5f9; padding: 10px 16px; border-radius: 12px; font-weight: 900; color: #1e293b; margin-bottom: 16px; word-break: break-all; }
+
+        /* ═══ FLOATING DOCK ═══ */
+        #floating-dock {
+            position: fixed; top: 50%; right: 16px; transform: translateY(-50%); z-index: 100;
+            background: white; border-radius: 36px; padding: 10px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.12); border: 3px solid #f1f5f9;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        #floating-dock.hidden { display: none; }
+        @media(max-width: 600px) {
+            #floating-dock { top: auto; bottom: 16px; right: 50%; transform: translateX(50%); flex-direction: row; }
+        }
+        .dock-btn {
+            width: 52px; height: 52px; border-radius: 50%; border: 2px solid transparent;
+            background: #f8fafc; cursor: pointer; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; transition: all 0.2s; color: #475569;
+        }
+        .dock-btn:hover { background: #e2e8f0; transform: scale(1.08); border-color: var(--duo-blue); }
+        .dock-btn.dock-profile { background: linear-gradient(135deg, var(--duo-blue), var(--duo-green)); color: white; font-weight: 900; font-size: 18px; }
+        .dock-btn.dock-profile:hover { transform: scale(1.05); }
+        .dock-btn.dock-logout:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+        .dock-badge {
+            position: absolute; top: -2px; right: -2px;
+            background: #ef4444; color: white; font-size: 10px; font-weight: 900;
+            min-width: 20px; height: 20px; border-radius: 999px; padding: 0 6px;
+            display: none; align-items: center; justify-content: center;
+            box-shadow: 0 2px 6px rgba(239,68,68,0.4); border: 2px solid white;
+        }
+        .dock-badge.show { display: flex; }
+        .dock-tooltip {
+            position: absolute; right: 100%; top: 50%; transform: translateY(-50%);
+            margin-right: 14px; background: #1e293b; color: white;
+            padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 800;
+            white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s;
+        }
+        .dock-tooltip::after {
+            content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+            border: 6px solid transparent; border-left-color: #1e293b;
+        }
+        .dock-btn:hover .dock-tooltip { opacity: 1; }
+        @media(max-width: 600px) {
+            .dock-tooltip {
+                right: auto; bottom: 100%; top: auto; left: 50%; transform: translateX(-50%);
+                margin-right: 0; margin-bottom: 12px;
+            }
+            .dock-tooltip::after {
+                left: 50%; top: 100%; transform: translateX(-50%);
+                border: 6px solid transparent; border-top-color: #1e293b; border-left-color: transparent;
+            }
+        }
+
+        /* ═══ MODALS ═══ */
+        .pta-modal-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; animation: fadeIn 0.2s ease-out;
+        }
+        .pta-modal-overlay.hidden { display: none; }
+        .pta-modal {
+            background: white; border-radius: 32px;
+            max-width: 720px; width: 100%; max-height: 90vh;
+            display: flex; flex-direction: column; overflow: hidden;
+            border: 3px solid #f1f5f9; box-shadow: 0 32px 80px rgba(0,0,0,0.25);
+            animation: modalSlide 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes modalSlide { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .pta-modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 24px 28px; border-bottom: 2px solid #f1f5f9; flex-shrink: 0;
+        }
+        .pta-modal-title { font-size: 24px; font-weight: 900; color: #1e293b; display: flex; align-items: center; gap: 12px; }
+        .pta-modal-close {
+            width: 40px; height: 40px; border-radius: 50%; border: none;
+            background: #f1f5f9; color: #475569; cursor: pointer; font-size: 18px;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .pta-modal-close:hover { background: #ef4444; color: white; transform: rotate(90deg); }
+        .pta-modal-body { padding: 28px; overflow-y: auto; flex: 1; }
+        .pta-modal-footer { padding: 20px 28px; border-top: 2px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 12px; flex-shrink: 0; }
+
+        .pta-tabs { display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 16px; margin-bottom: 20px; }
+        .pta-tab {
+            flex: 1; padding: 10px 16px; border-radius: 12px; border: none; background: transparent;
+            cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 14px;
+            color: #64748b; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .pta-tab.active { background: white; color: #1e293b; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .pta-tab .tab-count { background: #e2e8f0; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+        .pta-tab.active .tab-count { background: var(--duo-blue); color: white; }
+
+        .child-row {
+            background: white; border: 2px solid #e2e8f0; border-radius: 20px;
+            padding: 16px 20px; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 16px; transition: all 0.2s;
+        }
+        .child-row:hover { border-color: var(--duo-blue); transform: translateX(-4px); }
+        .child-avatar {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: linear-gradient(135deg, #fef3c7, #fed7aa);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; flex-shrink: 0;
+        }
+        .child-info { flex: 1; min-width: 0; }
+        .child-name { font-size: 16px; font-weight: 900; color: #1e293b; }
+        .child-meta { font-size: 13px; color: #64748b; font-weight: 700; margin-top: 2px; }
+        .child-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .child-btn {
+            border: none; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+            font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 12px; transition: all 0.15s;
+        }
+        .child-btn.edit { background: #dbeafe; color: #1e40af; }
+        .child-btn.edit:hover { background: var(--duo-blue); color: white; }
+        .child-btn.del { background: #fee2e2; color: #b91c1c; }
+        .child-btn.del:hover { background: #ef4444; color: white; }
+
+        .add-child-form {
+            background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 20px;
+            padding: 20px; margin-top: 16px;
+        }
+        .form-row { display: grid; grid-template-columns: 1fr 100px 100px; gap: 12px; margin-bottom: 12px; }
+        .form-row.form-row-2col { grid-template-columns: 1fr 140px; }
+        @media(max-width: 600px) { .form-row, .form-row.form-row-2col { grid-template-columns: 1fr 1fr; } }
+        .form-label { display: block; font-size: 12px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+
+        .booking-row {
+            background: white; border: 2px solid #e2e8f0; border-radius: 20px;
+            padding: 18px 20px; margin-bottom: 12px;
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        }
+        .booking-row.history { background: #f8fafc; opacity: 0.85; }
+        .booking-info { flex: 1; min-width: 0; }
+        .booking-teacher { font-size: 16px; font-weight: 900; color: #1e293b; }
+        .booking-time { font-size: 14px; color: var(--duo-green-dark); font-weight: 900; margin-top: 4px; }
+        .booking-row.history .booking-time { color: #94a3b8; }
+        .booking-student { font-size: 13px; color: #64748b; font-weight: 700; margin-top: 6px; }
+        .booking-cancel {
+            background: #fef2f2; color: #ef4444; border: none;
+            padding: 10px 16px; border-radius: 12px; font-weight: 900; font-size: 13px;
+            cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+            font-family: 'Nunito', sans-serif;
+        }
+        .booking-cancel:hover { background: #ef4444; color: white; }
+
+        .pta-empty-state { text-align: center; padding: 48px 24px; color: #94a3b8; font-weight: 800; }
+        .pta-empty-state .icon { font-size: 56px; margin-bottom: 12px; opacity: 0.5; }
+
+        .btn-primary {
+            background: var(--duo-blue); color: white; border: none;
+            padding: 12px 24px; border-radius: 16px; font-weight: 900; font-size: 14px;
+            border-bottom: 4px solid var(--duo-blue-dark); cursor: pointer;
+            font-family: 'Nunito', sans-serif; transition: all .15s;
+        }
+        .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .btn-primary:active { transform: translateY(2px); border-bottom-width: 0; margin-bottom: 4px; }
+        .btn-secondary {
+            background: #f1f5f9; color: #475569; border: none;
+            padding: 12px 24px; border-radius: 16px; font-weight: 900; font-size: 14px;
+            border-bottom: 4px solid #e2e8f0; cursor: pointer;
+            font-family: 'Nunito', sans-serif; transition: all .15s;
+        }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-success {
+            background: var(--duo-green); color: white; border: none;
+            padding: 12px 24px; border-radius: 16px; font-weight: 900; font-size: 14px;
+            border-bottom: 4px solid var(--duo-green-dark); cursor: pointer;
+            font-family: 'Nunito', sans-serif; transition: all .15s;
+        }
+        .btn-success:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .btn-success:active { transform: translateY(2px); border-bottom-width: 0; margin-bottom: 4px; }
+
+        .reminder-toggle {
+            display: flex; align-items: center; gap: 12px;
+            background: #f0f9ff; border: 2px solid #bae6fd; border-radius: 16px;
+            padding: 14px 18px; margin-top: 16px; cursor: pointer; transition: all 0.2s;
+        }
+        .reminder-toggle:hover { background: #e0f2fe; border-color: var(--duo-blue); }
+        .reminder-toggle input { width: 22px; height: 22px; cursor: pointer; flex-shrink: 0; accent-color: var(--duo-blue); }
+        .reminder-toggle-label { font-size: 14px; font-weight: 800; color: #0c4a6e; flex: 1; text-align: left; }
+        .reminder-toggle-label small { display: block; font-size: 12px; font-weight: 700; color: #075985; margin-top: 2px; opacity: 0.8; }
+
+        .child-select {
+            width: 100%; padding: 14px 16px;
+            border: 2px solid #e2e8f0; border-radius: 16px;
+            font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 16px;
+            background: #f8fafc; outline: none; margin-bottom: 16px; cursor: pointer;
+        }
+        .child-select:focus { border-color: var(--duo-blue); background: white; }
     </style>
 </head>
 <body>
@@ -427,6 +667,163 @@
 <div id="loading-overlay" class="hidden">
     <img src="logo.png" alt="IBSH Logo" style="width:80px;height:80px;object-fit:contain;">
     <div style="font-weight:900;color:var(--duo-green);font-size:24px;letter-spacing:1px;text-transform:uppercase;">Loading...</div>
+</div>
+
+
+<!-- ═══ LOGIN GATE ═══ -->
+<div id="login-gate" class="hidden">
+    <div class="gate-card">
+        <div class="gate-step active" id="gate-step-email">
+            <div class="gate-icon">📧</div>
+            <h1 class="gate-title">Sign in to PTA Open Hour</h1>
+            <p class="gate-desc">Enter your email — we'll send a 6-digit verification code so we can keep your bookings safe across sessions.</p>
+            <input id="gate-email-input" type="email" class="gate-input" placeholder="your@email.com" autocomplete="email">
+            <button class="gate-btn" id="gate-send-btn"><i class="fas fa-paper-plane"></i> Send Code</button>
+            <div class="gate-error" id="gate-email-error"></div>
+        </div>
+        <div class="gate-step" id="gate-step-code">
+            <div class="gate-icon">🔐</div>
+            <h1 class="gate-title">Check Your Email</h1>
+            <p class="gate-desc">We sent a 6-digit code to:</p>
+            <div class="gate-email-display" id="gate-email-display">—</div>
+            <input id="gate-code-input" type="text" inputmode="numeric" maxlength="6" class="gate-input code-input" placeholder="000000">
+            <button class="gate-btn" id="gate-verify-btn"><i class="fas fa-check"></i> Verify &amp; Enter</button>
+            <button class="gate-link" id="gate-back-btn">← Wrong email? Change it</button>
+            <div class="gate-error" id="gate-code-error"></div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══ FLOATING DOCK ═══ -->
+<div id="floating-dock" class="hidden">
+    <button class="dock-btn dock-profile" id="dock-profile-btn">
+        <span id="dock-profile-initial">?</span>
+        <span class="dock-tooltip" id="dock-profile-tooltip">—</span>
+    </button>
+    <button class="dock-btn" id="dock-children-btn">
+        <span>🧑‍🎓</span>
+        <span class="dock-badge" id="dock-children-badge">0</span>
+        <span class="dock-tooltip"> My Children</span>
+    </button>
+    <button class="dock-btn" id="dock-parents-btn">
+        <span>👨‍👩</span>
+        <span class="dock-badge" id="dock-parents-badge">0</span>
+        <span class="dock-tooltip">Parents</span>
+    </button>
+    <button class="dock-btn" id="dock-bookings-btn">
+        <span>📋</span>
+        <span class="dock-badge" id="dock-bookings-badge">0</span>
+        <span class="dock-tooltip">My Bookings</span>
+    </button>
+    <button class="dock-btn dock-logout" id="dock-logout-btn">
+        <span>🚪</span>
+        <span class="dock-tooltip">Sign out</span>
+    </button>
+</div>
+
+
+<!-- ═══ CHILDREN MODAL ═══ -->
+<div id="children-modal" class="pta-modal-overlay hidden">
+    <div class="pta-modal">
+        <div class="pta-modal-header">
+            <div class="pta-modal-title">🧑‍🎓 My Children</div>
+            <button class="pta-modal-close" data-close="children-modal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="pta-modal-body">
+            <div id="children-list"></div>
+            <div class="add-child-form" id="child-form-area">
+                <div style="font-size:14px;font-weight:900;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <span id="child-form-mode-icon">➕</span>
+                    <span id="child-form-mode-label">Add a Child</span>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div>
+                        <label class="form-label">Name *</label>
+                        <input id="child-name-input" class="saas-input" style="margin-bottom:0;" placeholder="e.g. Wang Xiao Ming" maxlength="50">
+                    </div>
+                    <div>
+                        <label class="form-label">Grade &amp; Class *</label>
+                        <input id="child-grade-input" class="saas-input" style="margin-bottom:0;" placeholder="e.g. 5A or 10B" maxlength="20">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea id="child-notes-input" class="saas-input" style="margin-bottom:0;" rows="2" placeholder="e.g. Allergic to peanuts" maxlength="200"></textarea>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                    <button class="btn-secondary" id="child-form-cancel" style="display:none;">Cancel</button>
+                    <button class="btn-success" id="child-form-save"><i class="fas fa-save"></i> <span id="child-form-save-label">Add Child</span></button>
+                </div>
+            </div>
+        </div>
+        <div class="pta-modal-footer">
+            <button class="btn-secondary" data-close="children-modal">Close</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══ PARENTS MODAL ═══ -->
+<div id="parents-modal" class="pta-modal-overlay hidden">
+    <div class="pta-modal">
+        <div class="pta-modal-header">
+            <div class="pta-modal-title">👨‍👩‍👧 My Family</div>
+            <button class="pta-modal-close" data-close="parents-modal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="pta-modal-body">
+            <div id="parents-list"></div>
+            <div class="add-child-form" id="parent-form-area">
+                <div style="font-size:14px;font-weight:900;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                    <span id="parent-form-mode-icon">➕</span>
+                    <span id="parent-form-mode-label">Add a Parent / Guardian</span>
+                </div>
+                <div class="form-row form-row-2col">
+                    <div>
+                        <label class="form-label">Name *</label>
+                        <input id="parent-name-input" class="saas-input" style="margin-bottom:0;" placeholder="e.g. Wang Mei Ling" maxlength="50">
+                    </div>
+                    <div>
+                        <label class="form-label">Relation</label>
+                        <input id="parent-relation-input" class="saas-input" style="margin-bottom:0;" placeholder="e.g. 媽媽 / Father" maxlength="20">
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                    <button class="btn-secondary" id="parent-form-cancel" style="display:none;">Cancel</button>
+                    <button class="btn-success" id="parent-form-save"><i class="fas fa-save"></i> <span id="parent-form-save-label">Add Parent</span></button>
+                </div>
+            </div>
+        </div>
+        <div class="pta-modal-footer">
+            <button class="btn-secondary" data-close="parents-modal">Close</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══ MY BOOKINGS MODAL ═══ -->
+<div id="bookings-modal" class="pta-modal-overlay hidden">
+    <div class="pta-modal">
+        <div class="pta-modal-header">
+            <div class="pta-modal-title">📋 My Bookings</div>
+            <button class="pta-modal-close" data-close="bookings-modal"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="pta-modal-body">
+            <div class="pta-tabs">
+                <button class="pta-tab active" data-bk-tab="active">
+                    <i class="fas fa-clock"></i> Active <span class="tab-count" id="bookings-tab-active-count">0</span>
+                </button>
+                <button class="pta-tab" data-bk-tab="history">
+                    <i class="fas fa-history"></i> History <span class="tab-count" id="bookings-tab-history-count">0</span>
+                </button>
+            </div>
+            <div id="bookings-list-active"></div>
+            <div id="bookings-list-history" style="display:none;"></div>
+        </div>
+        <div class="pta-modal-footer">
+            <button class="btn-secondary" data-close="bookings-modal">Close</button>
+        </div>
+    </div>
 </div>
 
 
@@ -519,14 +916,12 @@
     </div>
 
 
-    <!-- Controls (狀態與管理按鈕) -->
+    <!-- Controls (狀態) -->
     <div class="controls-bar">
         <div id="status-pill" class="status-pill status-checking">
             <i class="fas fa-circle-notch fa-spin"></i> Checking...
         </div>
-        <button class="manage-btn" id="btn-manage" style="background:var(--duo-green); border-bottom-color:var(--duo-green-dark);">
-            <i class="fas fa-ticket-alt"></i> My Bookings
-        </button>
+        <!-- My Bookings 已搬到右側 Floating Dock -->
     </div>
 
 
@@ -597,9 +992,9 @@ function toggleBulletin() {
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-    // ✅ 移除了 setDoc (不再需要寫入 verify_codes)，保留其他必要的 Firestore 操作
-    import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    // ✅ 加入 setDoc (要寫家長 children profile)
+    import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
 
     const firebaseConfig = {
@@ -782,6 +1177,7 @@ function toggleBulletin() {
         paths: {
             teachersCollection: 'artifacts/ibsh-pta-v2/public/data/teachers',
             bookings: 'artifacts/ibsh-pta-v2/private_bookings',
+            profiles: 'artifacts/ibsh-pta-v2/private_profiles',
             config: 'artifacts/ibsh-pta-v2/public/system_settings',
             logs: 'artifacts/ibsh-pta-v2/system_logs'
         },
@@ -789,12 +1185,22 @@ function toggleBulletin() {
         currentView: 'subject', currentSubject: null, currentTeacher: null,
         lastBookingTime: 0, isOpen: false, countdownTimer: null, slotSnapshotUnsubscribe: null,
 
+        // ─── 新會話狀態 ───
+        verifiedEmail: null,
+        children: [],
+        parents: [],
+        myBookings: [],
+        editingChildId: null,
+        editingParentId: null,
+        bookingsUnsub: null,
+        _gatePendingEmail: null,
+        _bookingsTab: 'active',
 
         init() {
             const fa = initializeApp(firebaseConfig);
             this.db = getFirestore(fa); this.auth = getAuth(fa);
-            
-            // 綁定返回按鈕事件
+
+            // 返回按鈕
             document.getElementById('btn-back-to-subject').addEventListener('click', () => this.showSubjects());
             document.getElementById('btn-back-to-teachers').addEventListener('click', () => {
                 if(document.getElementById('search-input').value.trim()) {
@@ -805,18 +1211,524 @@ function toggleBulletin() {
                     this.showSubjects();
                 }
             });
-            
-            document.getElementById('btn-manage').addEventListener('click', () => this.showManageFlow());
-            // ✅ 搜尋加入 300ms 防抖，避免每按一個鍵就重新渲染
+
+            // 搜尋
             const debouncedSearch = debounce(v => this.handleSearch(v), 300);
             document.getElementById('search-input').addEventListener('input', e => debouncedSearch(e.target.value));
-            
-            onAuthStateChanged(this.auth, user => {
-                if (user) this.checkSystemConfig();
-                else signInAnonymously(this.auth).catch(() => {
-                    document.getElementById('loading-overlay').innerHTML = `<div style="background:white;padding:40px;border-radius:32px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.1);"><div style="font-size:64px;color:#ef4444;margin-bottom:20px;"><i class="fas fa-exclamation-circle"></i></div><h2 style="font-weight:900;font-size:28px;margin-bottom:20px;">Connection Error</h2><button onclick="location.reload()" style="background:#1e293b;color:white;padding:16px 40px;border-radius:30px;font-weight:900;font-size:16px;border:none;cursor:pointer;">Retry</button></div>`;
-                });
+
+            // 登入閘
+            document.getElementById('gate-send-btn').addEventListener('click', () => this.gateSendCode());
+            document.getElementById('gate-verify-btn').addEventListener('click', () => this.gateVerifyCode());
+            document.getElementById('gate-back-btn').addEventListener('click', () => this.gateShowStep('email'));
+            document.getElementById('gate-email-input').addEventListener('keydown', e => { if (e.key === 'Enter') this.gateSendCode(); });
+            document.getElementById('gate-code-input').addEventListener('keydown', e => { if (e.key === 'Enter') this.gateVerifyCode(); });
+
+            // Floating Dock
+            document.getElementById('dock-children-btn').addEventListener('click', () => this.openChildrenModal());
+            document.getElementById('dock-parents-btn').addEventListener('click', () => this.openParentsModal());
+            document.getElementById('dock-bookings-btn').addEventListener('click', () => this.openBookingsModal());
+            document.getElementById('dock-logout-btn').addEventListener('click', () => this.logout());
+            document.getElementById('dock-profile-btn').addEventListener('click', () => alert(`Signed in as: ${this.verifiedEmail || 'unknown'}`));
+
+            // Modal close
+            document.querySelectorAll('[data-close]').forEach(btn => {
+                btn.addEventListener('click', () => document.getElementById(btn.dataset.close).classList.add('hidden'));
             });
+
+            // Children form
+            document.getElementById('child-form-save').addEventListener('click', () => this.saveChild());
+            document.getElementById('child-form-cancel').addEventListener('click', () => this.resetChildForm());
+
+            // Parents form
+            document.getElementById('parent-form-save').addEventListener('click', () => this.saveParent());
+            document.getElementById('parent-form-cancel').addEventListener('click', () => this.resetParentForm());
+
+            // Bookings tabs
+            document.querySelectorAll('[data-bk-tab]').forEach(tab => {
+                tab.addEventListener('click', () => this.switchBookingsTab(tab.dataset.bkTab));
+            });
+
+            onAuthStateChanged(this.auth, async user => {
+                if (user) {
+                    try {
+                        const tokenResult = await user.getIdTokenResult(false);
+                        const claimedEmail = tokenResult.claims.verifiedEmail;
+                        const stored = localStorage.getItem('pta_verified_email');
+
+                        if (claimedEmail && stored && claimedEmail === stored) {
+                            this.verifiedEmail = claimedEmail;
+                            this.enterMainApp();
+                        } else {
+                            this.showLoginGate();
+                        }
+                    } catch (e) {
+                        console.warn('Token check failed:', e);
+                        this.showLoginGate();
+                    }
+                } else {
+                    signInAnonymously(this.auth).catch(() => {
+                        document.getElementById('loading-overlay').innerHTML = `<div style="background:white;padding:40px;border-radius:32px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.1);"><div style="font-size:64px;color:#ef4444;margin-bottom:20px;"><i class="fas fa-exclamation-circle"></i></div><h2 style="font-weight:900;font-size:28px;margin-bottom:20px;">Connection Error</h2><button onclick="location.reload()" style="background:#1e293b;color:white;padding:16px 40px;border-radius:30px;font-weight:900;font-size:16px;border:none;cursor:pointer;">Retry</button></div>`;
+                    });
+                }
+            });
+        },
+
+        // ════════════════════════════════════
+        // LOGIN GATE
+        // ════════════════════════════════════
+        showLoginGate() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('login-gate').classList.remove('hidden');
+            document.getElementById('main-content').style.display = 'none';
+            document.getElementById('floating-dock').classList.add('hidden');
+            this.gateShowStep('email');
+        },
+
+        gateShowStep(step) {
+            document.querySelectorAll('.gate-step').forEach(s => s.classList.remove('active'));
+            document.getElementById(`gate-step-${step}`).classList.add('active');
+            document.getElementById('gate-email-error').innerText = '';
+            document.getElementById('gate-code-error').innerText = '';
+            if (step === 'email') {
+                setTimeout(() => document.getElementById('gate-email-input').focus(), 100);
+            } else if (step === 'code') {
+                setTimeout(() => document.getElementById('gate-code-input').focus(), 100);
+                document.getElementById('gate-code-input').value = '';
+            }
+        },
+
+        async gateSendCode() {
+            const emailInput = document.getElementById('gate-email-input');
+            const errorEl = document.getElementById('gate-email-error');
+            const btn = document.getElementById('gate-send-btn');
+            const email = normalizeEmail(emailInput.value);
+
+            errorEl.innerText = '';
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                errorEl.innerText = 'Please enter a valid email address.';
+                return;
+            }
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            const gr = await callGAS({ action: 'generateAndSendCode', email });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Code';
+            if (!gr.ok) {
+                errorEl.innerText = gr.error || 'Failed to send code.';
+                return;
+            }
+            this._gatePendingEmail = email;
+            document.getElementById('gate-email-display').innerText = email;
+            this.gateShowStep('code');
+        },
+
+        async gateVerifyCode() {
+            const errorEl = document.getElementById('gate-code-error');
+            const btn = document.getElementById('gate-verify-btn');
+            const code = document.getElementById('gate-code-input').value.trim();
+            const email = this._gatePendingEmail;
+
+            errorEl.innerText = '';
+            if (!/^\d{6}$/.test(code)) { errorEl.innerText = 'Enter the 6-digit code.'; return; }
+            if (!email) { errorEl.innerText = 'Session expired. Please re-enter your email.'; this.gateShowStep('email'); return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            const vr = await callGAS({ action: 'verifyCode', email, code, uid: this.auth.currentUser.uid });
+            if (!vr.ok) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enter';
+                errorEl.innerText = vr.error || 'Verification failed.';
+                return;
+            }
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading session...';
+            let claimReady = false;
+            for (let i = 0; i < 3; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const tokenResult = await this.auth.currentUser.getIdTokenResult(true);
+                if (tokenResult.claims.verifiedEmail === email) { claimReady = true; break; }
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enter';
+            if (!claimReady) { errorEl.innerText = 'Verification claim not ready. Please try again.'; return; }
+
+            this.verifiedEmail = email;
+            localStorage.setItem('pta_verified_email', email);
+            this.enterMainApp();
+        },
+
+        async logout() {
+            if (!confirm('Sign out? You will need to verify your email again next time.')) return;
+            if (this.bookingsUnsub) { this.bookingsUnsub(); this.bookingsUnsub = null; }
+            if (this.slotSnapshotUnsubscribe) { this.slotSnapshotUnsubscribe(); this.slotSnapshotUnsubscribe = null; }
+            localStorage.removeItem('pta_verified_email');
+            localStorage.removeItem('pta_teachers');
+            localStorage.removeItem('pta_teachers_ts');
+            this.verifiedEmail = null;
+            this.children = [];
+            this.myBookings = [];
+            try { await signOut(this.auth); } catch(e) { console.warn(e); }
+            location.reload();
+        },
+
+        // ════════════════════════════════════
+        // ENTER MAIN APP
+        // ════════════════════════════════════
+        async enterMainApp() {
+            document.getElementById('login-gate').classList.add('hidden');
+            const dock = document.getElementById('floating-dock');
+            dock.classList.remove('hidden');
+            document.getElementById('dock-profile-initial').innerText = (this.verifiedEmail || '?').charAt(0).toUpperCase();
+            document.getElementById('dock-profile-tooltip').innerText = this.verifiedEmail || '';
+
+            this.loadProfile();
+            this.subscribeMyBookings();
+            this.checkSystemConfig();
+        },
+
+        // ════════════════════════════════════
+        // PROFILE / CHILDREN
+        // ════════════════════════════════════
+        async loadProfile() {
+            try {
+                const ref = doc(this.db, this.paths.profiles, this.verifiedEmail);
+                const snap = await getDoc(ref);
+                if (snap.exists()) {
+                    const d = snap.data();
+                    this.children = d.children || [];
+                    this.parents = d.parents || [];
+                } else {
+                    this.children = [];
+                    this.parents = [];
+                }
+                this.updateDockBadges();
+            } catch(e) {
+                console.warn('loadProfile failed:', e);
+                this.children = [];
+                this.parents = [];
+            }
+        },
+
+        async saveProfile() {
+            const ref = doc(this.db, this.paths.profiles, this.verifiedEmail);
+            const payload = {
+                email: this.verifiedEmail,
+                children: this.children,
+                parents: this.parents,
+                updatedAt: new Date().toISOString()
+            };
+            const snap = await getDoc(ref);
+            if (!snap.exists()) payload.createdAt = new Date().toISOString();
+            await setDoc(ref, payload, { merge: true });
+        },
+
+        openChildrenModal() {
+            document.getElementById('children-modal').classList.remove('hidden');
+            this.resetChildForm();
+            this.renderChildren();
+        },
+
+        renderChildren() {
+            const list = document.getElementById('children-list');
+            if (!this.children.length) {
+                list.innerHTML = `<div class="pta-empty-state"><div class="icon">👶</div><div>No children yet. Add your first one below.</div></div>`;
+                return;
+            }
+            list.innerHTML = this.children.map(c => `
+                <div class="child-row">
+                    <div class="child-avatar">${c.name ? c.name.charAt(0).toUpperCase() : '👶'}</div>
+                    <div class="child-info">
+                        <div class="child-name">${escapeHtml(c.name)}</div>
+                        <div class="child-meta">Grade ${escapeHtml(c.grade || '—')}${c.notes ? ' · ' + escapeHtml(c.notes) : ''}</div>
+                    </div>
+                    <div class="child-actions">
+                        <button class="child-btn edit" data-edit="${escapeHtml(c.id)}"><i class="fas fa-edit"></i></button>
+                        <button class="child-btn del" data-del="${escapeHtml(c.id)}"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            list.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => this.editChild(b.dataset.edit)));
+            list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => this.deleteChild(b.dataset.del)));
+        },
+
+        editChild(id) {
+            const c = this.children.find(x => x.id === id);
+            if (!c) return;
+            this.editingChildId = id;
+            document.getElementById('child-name-input').value = c.name || '';
+            // 兼容舊資料：如果有 className，合併到 grade
+            document.getElementById('child-grade-input').value = c.grade
+                ? (c.className ? c.grade + c.className : c.grade)
+                : '';
+            document.getElementById('child-notes-input').value = c.notes || '';
+            document.getElementById('child-form-mode-icon').innerText = '✏️';
+            document.getElementById('child-form-mode-label').innerText = 'Edit Child';
+            document.getElementById('child-form-save-label').innerText = 'Save Changes';
+            document.getElementById('child-form-cancel').style.display = 'inline-block';
+            document.getElementById('child-name-input').focus();
+        },
+
+        resetChildForm() {
+            this.editingChildId = null;
+            document.getElementById('child-name-input').value = '';
+            document.getElementById('child-grade-input').value = '';
+            document.getElementById('child-notes-input').value = '';
+            document.getElementById('child-form-mode-icon').innerText = '➕';
+            document.getElementById('child-form-mode-label').innerText = 'Add a Child';
+            document.getElementById('child-form-save-label').innerText = 'Add Child';
+            document.getElementById('child-form-cancel').style.display = 'none';
+        },
+
+        async saveChild() {
+            const name = document.getElementById('child-name-input').value.trim();
+            const grade = document.getElementById('child-grade-input').value.trim();
+            const notes = document.getElementById('child-notes-input').value.trim();
+
+            if (!name || !grade) { alert('Name and Grade & Class are required.'); return; }
+            if (/[<>"']/.test(name) || /[<>"']/.test(grade) || /[<>"']/.test(notes)) {
+                alert('Invalid characters detected.'); return;
+            }
+
+            const btn = document.getElementById('child-form-save');
+            btn.disabled = true;
+            try {
+                if (this.editingChildId) {
+                    const c = this.children.find(x => x.id === this.editingChildId);
+                    if (c) { c.name = name; c.grade = grade; c.notes = notes; delete c.className; }
+                } else {
+                    this.children.push({
+                        id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                        name, grade, notes
+                    });
+                }
+                await this.saveProfile();
+                this.updateDockBadges();
+                this.resetChildForm();
+                this.renderChildren();
+            } catch(e) {
+                console.error(e);
+                alert('Failed to save child. ' + (e?.message || ''));
+            } finally {
+                btn.disabled = false;
+            }
+        },
+
+        async deleteChild(id) {
+            if (!confirm('Remove this child? Existing bookings will not be deleted.')) return;
+            this.children = this.children.filter(c => c.id !== id);
+            try {
+                await this.saveProfile();
+                this.updateDockBadges();
+                this.renderChildren();
+            } catch(e) {
+                console.error(e);
+                alert('Failed to remove child.');
+            }
+        },
+
+        // ════════════════════════════════════
+        // PARENTS / GUARDIANS
+        // ════════════════════════════════════
+        openParentsModal() {
+            document.getElementById('parents-modal').classList.remove('hidden');
+            this.resetParentForm();
+            this.renderParents();
+        },
+
+        renderParents() {
+            const list = document.getElementById('parents-list');
+            if (!this.parents.length) {
+                list.innerHTML = `<div class="pta-empty-state"><div class="icon">👨‍👩‍👧</div><div>No parents yet. Add your first one below.</div></div>`;
+                return;
+            }
+            list.innerHTML = this.parents.map(p => `
+                <div class="child-row">
+                    <div class="child-avatar" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);">${p.name ? p.name.charAt(0).toUpperCase() : '👤'}</div>
+                    <div class="child-info">
+                        <div class="child-name">${escapeHtml(p.name)}</div>
+                        <div class="child-meta">${escapeHtml(p.relation || 'Parent / Guardian')}</div>
+                    </div>
+                    <div class="child-actions">
+                        <button class="child-btn edit" data-edit="${escapeHtml(p.id)}"><i class="fas fa-edit"></i></button>
+                        <button class="child-btn del" data-del="${escapeHtml(p.id)}"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            list.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => this.editParent(b.dataset.edit)));
+            list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => this.deleteParent(b.dataset.del)));
+        },
+
+        editParent(id) {
+            const p = this.parents.find(x => x.id === id);
+            if (!p) return;
+            this.editingParentId = id;
+            document.getElementById('parent-name-input').value = p.name || '';
+            document.getElementById('parent-relation-input').value = p.relation || '';
+            document.getElementById('parent-form-mode-icon').innerText = '✏️';
+            document.getElementById('parent-form-mode-label').innerText = 'Edit Parent';
+            document.getElementById('parent-form-save-label').innerText = 'Save Changes';
+            document.getElementById('parent-form-cancel').style.display = 'inline-block';
+            document.getElementById('parent-name-input').focus();
+        },
+
+        resetParentForm() {
+            this.editingParentId = null;
+            document.getElementById('parent-name-input').value = '';
+            document.getElementById('parent-relation-input').value = '';
+            document.getElementById('parent-form-mode-icon').innerText = '➕';
+            document.getElementById('parent-form-mode-label').innerText = 'Add a Parent / Guardian';
+            document.getElementById('parent-form-save-label').innerText = 'Add Parent';
+            document.getElementById('parent-form-cancel').style.display = 'none';
+        },
+
+        async saveParent() {
+            const name = document.getElementById('parent-name-input').value.trim();
+            const relation = document.getElementById('parent-relation-input').value.trim();
+
+            if (!name) { alert('Parent name is required.'); return; }
+            if (/[<>"']/.test(name) || /[<>"']/.test(relation)) {
+                alert('Invalid characters detected.'); return;
+            }
+
+            const btn = document.getElementById('parent-form-save');
+            btn.disabled = true;
+            try {
+                if (this.editingParentId) {
+                    const p = this.parents.find(x => x.id === this.editingParentId);
+                    if (p) { p.name = name; p.relation = relation; }
+                } else {
+                    this.parents.push({
+                        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                        name, relation
+                    });
+                }
+                await this.saveProfile();
+                this.updateDockBadges();
+                this.resetParentForm();
+                this.renderParents();
+            } catch(e) {
+                console.error(e);
+                alert('Failed to save parent. ' + (e?.message || ''));
+            } finally {
+                btn.disabled = false;
+            }
+        },
+
+        async deleteParent(id) {
+            if (!confirm('Remove this parent? Existing bookings will not be deleted.')) return;
+            this.parents = this.parents.filter(p => p.id !== id);
+            try {
+                await this.saveProfile();
+                this.updateDockBadges();
+                this.renderParents();
+            } catch(e) {
+                console.error(e);
+                alert('Failed to remove parent.');
+            }
+        },
+
+        // ════════════════════════════════════
+        // MY BOOKINGS
+        // ════════════════════════════════════
+        subscribeMyBookings() {
+            if (this.bookingsUnsub) this.bookingsUnsub();
+            const q = query(collection(this.db, this.paths.bookings), where('email', '==', this.verifiedEmail));
+            this.bookingsUnsub = onSnapshot(q, snap => {
+                this.myBookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                this.updateDockBadges();
+                if (!document.getElementById('bookings-modal').classList.contains('hidden')) {
+                    this.renderBookings();
+                }
+            }, err => console.warn('bookings subscription failed:', err));
+        },
+
+        isBookingActive(b) {
+            if (!b.slotDate || b.slotDate === 'General' || b.slotDate === 'General Availability') return true;
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const dt = new Date(b.slotDate); dt.setHours(0, 0, 0, 0);
+            return !isNaN(dt.getTime()) && dt.getTime() >= today.getTime();
+        },
+
+        updateDockBadges() {
+            const cb = document.getElementById('dock-children-badge');
+            const pb = document.getElementById('dock-parents-badge');
+            const bb = document.getElementById('dock-bookings-badge');
+            const childCount = this.children.length;
+            const parentCount = this.parents.length;
+            const activeBkCount = this.myBookings.filter(b => this.isBookingActive(b)).length;
+            cb.innerText = childCount;
+            cb.classList.toggle('show', childCount > 0);
+            pb.innerText = parentCount;
+            pb.classList.toggle('show', parentCount > 0);
+            bb.innerText = activeBkCount;
+            bb.classList.toggle('show', activeBkCount > 0);
+        },
+
+        openBookingsModal() {
+            document.getElementById('bookings-modal').classList.remove('hidden');
+            this.renderBookings();
+        },
+
+        switchBookingsTab(tab) {
+            this._bookingsTab = tab;
+            document.querySelectorAll('[data-bk-tab]').forEach(t => t.classList.toggle('active', t.dataset.bkTab === tab));
+            document.getElementById('bookings-list-active').style.display = tab === 'active' ? '' : 'none';
+            document.getElementById('bookings-list-history').style.display = tab === 'history' ? '' : 'none';
+        },
+
+        renderBookings() {
+            const active = this.myBookings.filter(b => this.isBookingActive(b));
+            const history = this.myBookings.filter(b => !this.isBookingActive(b));
+            document.getElementById('bookings-tab-active-count').innerText = active.length;
+            document.getElementById('bookings-tab-history-count').innerText = history.length;
+
+            const sortByDateTime = (a, b) => (a.slotDate || '').localeCompare(b.slotDate || '') || (a.slotTime || '').localeCompare(b.slotTime || '');
+            const renderRow = (b, isHistory) => {
+                const dd = (b.slotDate && b.slotDate !== 'General') ? ` · ${escapeHtml(b.slotDate)}` : '';
+                const studentLabel = b.student + (b.grade ? ` (${b.grade})` : '');
+                return `
+                    <div class="booking-row${isHistory ? ' history' : ''}">
+                        <div class="booking-info">
+                            <div class="booking-teacher">${escapeHtml(b.teacherName)}</div>
+                            <div class="booking-time"><i class="far fa-clock"></i> ${escapeHtml(b.slotTime || '')}${dd}</div>
+                            <div class="booking-student"><i class="fas fa-user"></i> ${escapeHtml(studentLabel)}</div>
+                        </div>
+                        ${isHistory ? '' : `<button class="booking-cancel" data-cancel="${escapeHtml(b.id)}">Cancel</button>`}
+                    </div>`;
+            };
+
+            const a = document.getElementById('bookings-list-active');
+            const h = document.getElementById('bookings-list-history');
+            a.innerHTML = active.length
+                ? active.sort(sortByDateTime).map(b => renderRow(b, false)).join('')
+                : `<div class="pta-empty-state"><div class="icon">📭</div><div>No active bookings.</div></div>`;
+            h.innerHTML = history.length
+                ? history.sort(sortByDateTime).map(b => renderRow(b, true)).join('')
+                : `<div class="pta-empty-state"><div class="icon">🗂️</div><div>No past bookings.</div></div>`;
+
+            a.querySelectorAll('[data-cancel]').forEach(btn => btn.addEventListener('click', () => this.cancelMyBooking(btn.dataset.cancel)));
+            this.switchBookingsTab(this._bookingsTab);
+        },
+
+        async cancelMyBooking(bookingId) {
+            const b = this.myBookings.find(x => x.id === bookingId);
+            if (!b) return;
+            if (!confirm(`Cancel your booking with ${b.teacherName} at ${b.slotTime}?`)) return;
+
+            try {
+                const sr = doc(this.db, `${this.paths.teachersCollection}/${b.teacherId}/slots/${b.slotId}`);
+                await runTransaction(this.db, async tx => {
+                    const s = await tx.get(sr);
+                    if (s.exists()) tx.update(sr, { status: 'available', bookingRef: null, lockedAt: null });
+                });
+                try { await deleteDoc(doc(this.db, this.paths.bookings, b.id)); } catch(e) { console.warn('Booking delete blocked by rules:', e); }
+                this.writeLog('Booking Cancelled', `Parent (${this.verifiedEmail}) cancelled booking for ${b.student} with ${b.teacherName} on ${b.slotDate || ''} ${b.slotTime}`);
+                callGAS({ action: 'sendCancellation', email: this.verifiedEmail, parent: b.parent, student: b.student + (b.grade ? ' (' + b.grade + ')' : ''), teacherName: b.teacherName, slotTime: b.slotTime, slotDate: b.slotDate || '' });
+            } catch(e) {
+                console.error(e);
+                alert('Failed to cancel: ' + (e?.message || e));
+            }
         },
 
 
@@ -1262,15 +2174,31 @@ function toggleBulletin() {
         },
 
 
-        async book(tid,slotId,timeLabel,dateLabel) {
-            if(Date.now()-this.lastBookingTime<3000)return Swal.fire({icon:'warning',title:'Too Fast!',text:'Please wait a few seconds.',customClass:{popup:'swal-saas'}});
-            // 第一道防線：確保 isOpen 狀態
-            if(!this.isOpen)return Swal.fire({icon:'error',title:'Booking Closed',text:'The booking window is closed.',customClass:{popup:'swal-saas'}});
-            this.lastBookingTime=Date.now();
-            const t=this.data.teachers.find(x=>x.id===tid);if(!t)return;
-            const dd=(dateLabel&&dateLabel!=='General')?`on ${escapeHtml(dateLabel)}`:'';
-            
-            // --- 步驟 0: 鎖定時段 (讓其他家長看到 Booking 狀態) ---
+        async book(tid, slotId, timeLabel, dateLabel) {
+            if (Date.now() - this.lastBookingTime < 3000) return Swal.fire({icon:'warning',title:'Too Fast!',text:'Please wait a few seconds.',customClass:{popup:'swal-saas'}});
+            if (!this.isOpen) return Swal.fire({icon:'error',title:'Booking Closed',text:'The booking window is closed.',customClass:{popup:'swal-saas'}});
+            if (!this.verifiedEmail) return Swal.fire({icon:'error',title:'Not Signed In',text:'Please sign in first.',customClass:{popup:'swal-saas'}});
+
+            // 必須先有孩子檔案
+            if (!this.children.length) {
+                const r = await Swal.fire({
+                    title:'Add a Child First',
+                    html:'You need at least one child profile before booking.<br><br>Click below to add one.',
+                    icon:'info',
+                    showCancelButton:true,
+                    confirmButtonText:'👶 Open Children Manager',
+                    cancelButtonText:'Cancel',
+                    customClass:{popup:'swal-saas'}
+                });
+                if (r.isConfirmed) this.openChildrenModal();
+                return;
+            }
+
+            this.lastBookingTime = Date.now();
+            const t = this.data.teachers.find(x => x.id === tid); if (!t) return;
+            const dd = (dateLabel && dateLabel !== 'General') ? `on ${escapeHtml(dateLabel)}` : '';
+
+            // --- 步驟 0: 鎖定時段 ---
             const slotRef = doc(this.db, `${this.paths.teachersCollection}/${tid}/slots/${slotId}`);
             const myUid = this.auth.currentUser.uid;
             try {
@@ -1278,11 +2206,10 @@ function toggleBulletin() {
                     const sf = await tx.get(slotRef);
                     const data = sf.data();
                     if (!sf.exists() || data.status === 'booked') throw "unavailable";
-                    // ✅ 修復：如果是自己鎖的，允許重新鎖定（解決取消後重新預約的問題）
                     if (data.status === 'locked') {
                         const isMyLock = data.lockedBy === myUid;
                         const isExpired = Date.now() - (data.lockedAt || 0) >= 300000;
-                        if (!isMyLock && !isExpired) throw "unavailable"; // 別人鎖的且沒過期
+                        if (!isMyLock && !isExpired) throw "unavailable";
                     }
                     tx.update(slotRef, { status: 'locked', lockedAt: Date.now(), lockedBy: myUid });
                 });
@@ -1290,210 +2217,108 @@ function toggleBulletin() {
                 return Swal.fire({icon:'warning', title:'Too Slow! 🏃💨', text:'Someone else just started booking this time. Please pick another one.', customClass:{popup:'swal-saas'}});
             }
 
+            // 必須先有家長檔案
+            if (!this.parents.length) {
+                const r = await Swal.fire({
+                    title:'Add a Parent First',
+                    html:'You need at least one parent profile before booking.<br><br>Click below to add one.',
+                    icon:'info',
+                    showCancelButton:true,
+                    confirmButtonText:'👨‍👩‍👧 Open Parents Manager',
+                    cancelButtonText:'Cancel',
+                    customClass:{popup:'swal-saas'}
+                });
+                if (r.isConfirmed) this.openParentsModal();
+                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
+                return;
+            }
 
-            // --- 步驟 1: 填寫預約表單 ---
-            const{value:form, isConfirmed: isNext}=await Swal.fire({
+            // --- 步驟 1: 表單（孩子下拉 + 家長下拉 + topics + reminder checkbox）---
+            const childOptions = this.children.map(c =>
+                `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)} (${escapeHtml(c.grade)})</option>`
+            ).join('');
+            const parentOptions = this.parents.map(p =>
+                `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.relation ? ' · ' + escapeHtml(p.relation) : ''}</option>`
+            ).join('');
+
+            const { value: form, isConfirmed } = await Swal.fire({
                 title:'Confirm Booking',
                 customClass:{popup:'swal-saas swal-wide'},
                 html:`
-                    <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:20px;padding:24px;margin-bottom:28px;text-align:left;">
+                    <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:20px;padding:24px;margin-bottom:24px;text-align:left;">
                         <div style="font-weight:900;color:#1e293b;font-size:24px;">${escapeHtml(t.name)}</div>
                         <div style="color:var(--duo-green-dark);font-weight:900;font-size:20px;margin-top:8px;"><i class="far fa-clock"></i> ${escapeHtml(timeLabel)} ${dd}</div>
                         <div style="color:#64748b;font-size:16px;font-weight:700;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div>
                     </div>
                     <div style="display:flex;flex-direction:column;text-align:left;">
-                        <div style="display:flex; gap:16px;">
-                            <div style="flex:1;">
-                                <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">Student Name <span style="color:#ef4444">*</span></label>
-                                <input id="sw-student" class="saas-input" placeholder="e.g. John Doe" maxlength="50">
-                            </div>
-                            <div style="width:110px;">
-                                <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">Class <span style="color:#ef4444">*</span></label>
-                                <input id="sw-grade" class="saas-input" placeholder="e.g. 9A" maxlength="10">
-                            </div>
-                        </div>
-                        
-                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;">Parent Name <span style="color:#ef4444">*</span></label>
-                        <input id="sw-parent" class="saas-input" placeholder="e.g. Jane Doe" maxlength="50">
-                        
-                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;">Email Address <span style="color:#ef4444">*</span></label>
-                        <input id="sw-email" class="saas-input" type="email" placeholder="For confirmation & management" maxlength="100">
-                        
-                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;">Topics to Discuss (Optional)</label>
+                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">For Which Child? <span style="color:#ef4444">*</span></label>
+                        <select id="sw-child" class="child-select">
+                            <option value="">— Select a child —</option>
+                            ${childOptions}
+                        </select>
+
+                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">Parent Attending? <span style="color:#ef4444">*</span></label>
+                        <select id="sw-parent-id" class="child-select">
+                            <option value="">— Select a parent —</option>
+                            ${parentOptions}
+                        </select>
+
+                        <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">Topics to Discuss (Optional)</label>
                         <textarea id="sw-message" class="saas-input" rows="3" placeholder="Specific questions or topics you'd like to talk about..." maxlength="300" style="resize:vertical;"></textarea>
+
+                        <label class="reminder-toggle" for="sw-reminder">
+                            <input type="checkbox" id="sw-reminder" checked>
+                            <div class="reminder-toggle-label">
+                                Send confirmation email to me
+                                <small>${escapeHtml(this.verifiedEmail)}</small>
+                            </div>
+                        </label>
                     </div>`,
                 focusConfirm:false,
                 showCancelButton:true,
-                confirmButtonText:'NEXT ➔',
+                confirmButtonText:'CONFIRM BOOKING',
                 confirmButtonColor: 'var(--duo-blue)',
-                preConfirm:()=>{
-                    const s=document.getElementById('sw-student').value.trim(),
-                          g=document.getElementById('sw-grade').value.trim(),
-                          p=document.getElementById('sw-parent').value.trim(),
-                          e=document.getElementById('sw-email').value.trim().toLowerCase(),
-                          m=document.getElementById('sw-message').value.trim();
-                    if(!s||!g||!p||!e)return Swal.showValidationMessage('Required fields missing!');
-                    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return Swal.showValidationMessage('Valid email required!');
-                    if(/[<>'"&]/.test(s)||/[<>'"&]/.test(p)||/[<>'"&]/.test(g))return Swal.showValidationMessage('Invalid characters!');
-                    return {student:s, grade:g, parent:p, email:e, message:m};
+                preConfirm: () => {
+                    const childId = document.getElementById('sw-child').value.trim();
+                    const parentId = document.getElementById('sw-parent-id').value.trim();
+                    const m = document.getElementById('sw-message').value.trim();
+                    const sendReminder = document.getElementById('sw-reminder').checked;
+                    if (!childId) return Swal.showValidationMessage('Please select a child.');
+                    if (!parentId) return Swal.showValidationMessage('Please select a parent.');
+                    const child = this.children.find(c => c.id === childId);
+                    const parentObj = this.parents.find(p => p.id === parentId);
+                    if (!child) return Swal.showValidationMessage('Selected child not found.');
+                    if (!parentObj) return Swal.showValidationMessage('Selected parent not found.');
+                    return { childId, child, parentId, parentObj, message: m, sendReminder };
                 }
             });
-            
-            if(!isNext || !form) {
-                // 如果家長關閉了表單，解除鎖定
+
+            if (!isConfirmed || !form) {
                 runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                 return;
             }
 
-
-            // --- 步驟 2 & 3: 驗證碼迴圈（✅ 允許重新輸入 email） ---
-            let verified = false;
-            let inputCode = null;
-            let verifyAttempts = 0;
-            const MAX_RETRY = 3;
-
-            while (!verified && verifyAttempts < MAX_RETRY) {
-                verifyAttempts++;
-
-                // --- 步驟 2: 請求 GAS 產生並發送驗證碼 ---
-                Swal.fire({
-                    title:'Sending Code...',
-                    text: `Sending to ${form.email}`,
-                    customClass:{popup:'swal-saas'},
-                    didOpen:()=>Swal.showLoading(),
-                    allowOutsideClick:false
-                });
-
-                const gr = await callGAS({ action: "generateAndSendCode", email: form.email });
-                if (!gr.ok) {
-                    // ✅ 發送失敗 → 讓家長選擇「修改 email」或「取消」
-                    const retry = await Swal.fire({
-                        title:'Email Error',
-                        text: gr.error || 'Failed to send verification email.',
-                        icon:'error',
-                        customClass:{popup:'swal-saas'},
-                        showCancelButton: true,
-                        confirmButtonText: '✏️ Change Email',
-                        cancelButtonText: 'Cancel Booking',
-                        confirmButtonColor: '#1CB0F6'
-                    });
-                    if (retry.isConfirmed) {
-                        // ✅ 讓家長重新輸入 email
-                        const {value: newEmail} = await Swal.fire({
-                            title: 'Correct Your Email',
-                            customClass: {popup:'swal-saas'},
-                            input: 'email',
-                            inputValue: form.email,
-                            inputPlaceholder: 'your@email.com',
-                            showCancelButton: true,
-                            confirmButtonText: 'Resend Code',
-                            inputValidator: v => { if(!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Please enter a valid email'; }
-                        });
-                        if (newEmail) { form.email = newEmail.trim().toLowerCase(); continue; }
-                    }
-                    // 取消預約 → 解鎖
-                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                    return;
-                }
-
-                // --- 步驟 3: 輸入驗證碼（✅ 加入「重新輸入 email」按鈕） ---
-                const verifyResult = await Swal.fire({
-                    title: 'Verify Email',
-                    customClass: { popup: 'swal-saas swal-wide' },
-                    html: `
-                        <p style="font-size:16px;font-weight:700;color:#64748b;margin-bottom:8px;">We sent a 6-digit code to:</p>
-                        <p style="font-size:18px;font-weight:900;color:#1e293b;margin-bottom:20px;">${escapeHtml(form.email)}</p>
-                        <input id="book-verify-code" class="saas-input" style="text-align:center;font-size:32px;letter-spacing:12px;font-family:monospace;font-weight:900;padding:16px;" placeholder="000000" maxlength="6" inputmode="numeric">
-                        <p style="font-size:13px;color:#94a3b8;margin-top:12px;">Check your inbox (and spam folder).</p>
-                        <button type="button" id="btn-change-email" style="margin-top:16px;background:none;border:none;color:#1CB0F6;font-weight:800;font-size:14px;cursor:pointer;text-decoration:underline;">Wrong email? Click to change ✏️</button>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: 'VERIFY & BOOK',
-                    cancelButtonText: 'CANCEL',
-                    focusConfirm: false,
-                    didOpen: () => {
-                        document.getElementById('btn-change-email').addEventListener('click', () => {
-                            Swal.close({ dismiss: 'change-email' });
-                        });
-                    },
-                    preConfirm: () => {
-                        const c = document.getElementById('book-verify-code').value.trim();
-                        if (!/^\d{6}$/.test(c)) return Swal.showValidationMessage('Please enter the 6-digit code');
-                        return c;
-                    }
-                });
-
-                // ✅ 按了「Wrong email? Click to change」
-                if (verifyResult.dismiss === 'change-email' || (verifyResult.dismiss && !verifyResult.isConfirmed)) {
-                    if (verifyResult.dismiss === 'change-email') {
-                        const {value: newEmail} = await Swal.fire({
-                            title: 'Correct Your Email',
-                            customClass: {popup:'swal-saas'},
-                            input: 'email',
-                            inputValue: form.email,
-                            inputPlaceholder: 'your@email.com',
-                            showCancelButton: true,
-                            confirmButtonText: 'Resend Code',
-                            inputValidator: v => { if(!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Please enter a valid email'; }
-                        });
-                        if (newEmail) { form.email = newEmail.trim().toLowerCase(); continue; }
-                    }
-                    // 按了 CANCEL → 解鎖
-                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                    return;
-                }
-
-                if (verifyResult.isConfirmed && verifyResult.value) {
-                    inputCode = verifyResult.value;
-                    verified = true;
-                }
-            }
-
-            if (!verified || !inputCode) {
-                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                return;
-            }
-
-
-            // --- 步驟 4: 在 GAS server-side 驗證代碼，然後執行預約 (Transaction) ---
-            Swal.fire({title:'Verifying & Reserving...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading(),allowOutsideClick:false});
+            // --- 步驟 2: 上限 / 同老師檢查（用 verifiedEmail）---
+            Swal.fire({title:'Reserving...', customClass:{popup:'swal-saas'}, didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
 
             try {
-                // ✅ 驗證碼比對在 GAS 端完成，前端永遠看不到正確的驗證碼
-                const vr = await callGAS({ action: "verifyCode", email: form.email, code: inputCode });
-                if (!vr.ok) {
+                const existingSnap = await getDocs(query(collection(this.db, this.paths.bookings), where("email","==", this.verifiedEmail)));
+                const sameTeacher = existingSnap.docs.some(d => d.data().teacherId === tid);
+                const existingCount = existingSnap.size;
+
+                if (sameTeacher) {
                     runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                    return Swal.fire({title: vr.reason === 'expired' ? 'Expired' : vr.reason === 'incorrect' ? 'Incorrect' : 'Invalid', text: vr.error || 'Verification failed.', icon:'error', customClass:{popup:'swal-saas'}});
+                    return Swal.fire({title:'Already Booked', text:`You already have a booking with ${t.name}. Only one time slot per teacher is allowed.`, icon:'warning', customClass:{popup:'swal-saas'}});
                 }
-
-
-                // ✅ 預約前檢查此 email 是否已超過預約上限
-                // Firestore rules 目前只允許家長查自己的 uid，因此先查自己的 bookings 再比對 email。
-                const existingSnap = await getDocs(query(collection(this.db, this.paths.bookings), where("uid","==", myUid)));
-                const sameEmailBookings = existingSnap.docs.filter(d => normalizeEmail(d.data().email) === normalizeEmail(form.email));
-                const hasSameTeacherBooking = sameEmailBookings.some(d => d.data().teacherId === tid);
-                const existingCount = sameEmailBookings.length;
-
-                if (hasSameTeacherBooking) {
-                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                    return Swal.fire({
-                        title:'Already Booked',
-                        text:`You already have a booking with ${t.name}. Only one time slot per teacher is allowed.`,
-                        icon:'warning',
-                        customClass:{popup:'swal-saas'}
-                    });
-                }
-
                 if (existingCount >= BOOKING_LIMIT) {
                     runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                     return Swal.fire({title:'Limit Reached', text:`You already have ${existingCount} bookings. Maximum is ${BOOKING_LIMIT}.`, icon:'warning', customClass:{popup:'swal-saas'}});
                 }
 
-
+                // --- 步驟 3: 寫入預約 ---
                 await runTransaction(this.db, async tx => {
                     const sf = await tx.get(slotRef);
                     if (!sf.exists() || sf.data().status === 'booked') throw "Slot unavailable";
-                    // ✅ 驗證鎖定者身份：如果 slot 處於 locked 狀態，只有原始鎖定者才能完成預約
                     const slotData = sf.data();
                     if (slotData.status === 'locked' && slotData.lockedBy && slotData.lockedBy !== myUid) throw "Not your lock";
 
@@ -1507,19 +2332,21 @@ function toggleBulletin() {
                         slotId,
                         slotTime: timeLabel,
                         slotDate: dateLabel,
-                        student: form.student,
-                        grade: form.grade,
-                        parent: form.parent,
-                        email: form.email,
+                        student: form.child.name,
+                        grade: form.child.grade,
+                        childId: form.childId,
+                        parent: form.parentObj.name,
+                        parentId: form.parentId,
+                        parentRelation: form.parentObj.relation || '',
+                        email: this.verifiedEmail,
                         message: form.message,
+                        sendReminder: form.sendReminder,
                         createdAt: new Date().toISOString()
                     });
-                    // ✅ 修復：保留 lockedBy 作為預約者身份，取消時 rules 會驗證
                     tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null });
                 });
 
-
-                // 本地端立刻更新時段狀態並重新渲染，無需重新整理
+                // 本地更新
                 const localSlot = t.slots.find(x => x.id === slotId);
                 if (localSlot) {
                     localSlot.status = 'booked';
@@ -1528,144 +2355,41 @@ function toggleBulletin() {
                     }
                 }
 
+                const studentLabel = `${form.child.name} (${form.child.grade})`;
+                this.writeLog('Booking Created', `Parent (${this.verifiedEmail}) booked ${studentLabel} with ${t.name} on ${dateLabel} ${timeLabel}`);
 
-                const studentWithGrade = `${form.student} (${form.grade})`;
-
-                this.writeLog('Booking Created', `Parent (${form.email}) booked ${studentWithGrade} with ${t.name} on ${dateLabel} ${timeLabel}`);
-
-                callGAS({
-                    action:"sendConfirmation",
-                    email:form.email,
-                    parent:form.parent,
-                    student:studentWithGrade,
-                    teacherName:t.name,
-                    teacherEmail:t.email||'',
-                    slotTime:timeLabel,
-                    slotDate:dateLabel,
-                    location:t.location||'',
-                    message:form.message
-                });
+                if (form.sendReminder) {
+                    callGAS({
+                        action:"sendConfirmation",
+                        email: this.verifiedEmail,
+                        parent: form.parentObj.name,
+                        student: studentLabel,
+                        teacherName: t.name,
+                        teacherEmail: t.email || '',
+                        slotTime: timeLabel,
+                        slotDate: dateLabel,
+                        location: t.location || '',
+                        message: form.message
+                    });
+                }
 
                 Swal.fire({
                     title:'Booking Confirmed!',
-                    html:`<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:20px;padding:24px;text-align:left;margin-top:20px;"><div style="font-weight:900;font-size:22px;color:#166534;">${escapeHtml(t.name)}</div><div style="color:var(--duo-green-dark);font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-check-circle"></i> ${escapeHtml(timeLabel)} ${dd}</div><div style="color:#166534;font-weight:700;font-size:16px;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div></div><p style="font-size:16px;color:#64748b;font-weight:700;margin-top:24px;">Confirmation sent to <strong>${escapeHtml(form.email)}</strong></p>`,
+                    html:`<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:20px;padding:24px;text-align:left;margin-top:20px;"><div style="font-weight:900;font-size:22px;color:#166534;">${escapeHtml(t.name)}</div><div style="color:var(--duo-green-dark);font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-check-circle"></i> ${escapeHtml(timeLabel)} ${dd}</div><div style="color:#166534;font-weight:700;font-size:16px;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div><div style="color:#166534;font-weight:700;font-size:14px;margin-top:8px;"><i class="fas fa-user"></i> ${escapeHtml(studentLabel)}</div></div>${form.sendReminder ? `<p style="font-size:14px;color:#64748b;font-weight:700;margin-top:20px;">📧 Confirmation sent to <strong>${escapeHtml(this.verifiedEmail)}</strong></p>` : `<p style="font-size:14px;color:#94a3b8;font-weight:700;margin-top:20px;">No confirmation email sent (you opted out).</p>`}`,
                     confirmButtonText:'AWESOME!',
                     customClass:{popup:'swal-saas'}
                 });
             } catch (e) {
                 console.error("Booking failed:", e);
                 const errText = e?.code === 'permission-denied'
-                    ? 'Booking lookup was blocked by Firebase rules. Please try again in the same browser session.'
+                    ? 'Booking blocked by Firebase rules.'
                     : (typeof e === 'string' ? e : 'Slot already taken. Please select another time.');
-                Swal.fire({title:'Oops!',text:errText,icon:'error',customClass:{popup:'swal-saas'}});
+                Swal.fire({title:'Oops!', text:errText, icon:'error', customClass:{popup:'swal-saas'}});
             }
         },
 
 
-        async showManageFlow() {
-            const{value:email}=await Swal.fire({title:'My Bookings',customClass:{popup:'swal-saas swal-wide'},html:`<p style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:24px;">Enter the email used during booking.</p><input id="mg-email" class="saas-input" type="email" placeholder="your@email.com">`,confirmButtonText:'SEND CODE',showCancelButton:true,cancelButtonText:'CANCEL',focusConfirm:false,preConfirm:()=>{const e=document.getElementById('mg-email').value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return Swal.showValidationMessage('Enter a valid email');return e;}});
-            if(!email)return;
-            // ✅ 改用 GAS server-side 產生 + 發送驗證碼
-            Swal.fire({title:'Sending code...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            const gr=await callGAS({action:"generateAndSendCode",email});
-            if(!gr.ok)return Swal.fire({title:'Error',text: gr.error || 'Failed to send email.',icon:'error',customClass:{popup:'swal-saas'}});
-            const{value:inputCode}=await Swal.fire({title:'Check Your Email',customClass:{popup:'swal-saas swal-wide'},html:`<p style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:24px;">Enter the 6-digit code sent to<br><strong style="color:#1e293b">${escapeHtml(email)}</strong></p><input id="mg-code" class="saas-input" style="text-align:center;font-size:36px;letter-spacing:16px;font-family:monospace;font-weight:900;padding:20px;" placeholder="000000" maxlength="6" inputmode="numeric">`,confirmButtonText:'VERIFY CODE',showCancelButton:true,cancelButtonText:'CANCEL',focusConfirm:false,preConfirm:()=>{const c=document.getElementById('mg-code').value.trim();if(!/^\d{6}$/.test(c))return Swal.showValidationMessage('Enter the 6-digit code');return c;}});
-            if(!inputCode)return;
-            // ✅ 改用 GAS server-side 驗證
-            Swal.fire({title:'Verifying...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            const vr=await callGAS({action:"verifyCode",email,code:inputCode,uid:this.auth.currentUser.uid});
-            console.log('[verifyCode] GAS response:', vr);
-            if(!vr.ok)return Swal.fire({title: vr.reason==='expired'?'Expired':vr.reason==='incorrect'?'Incorrect':'Invalid', text: vr.error || 'Verification failed.', icon:'error', customClass:{popup:'swal-saas'}});
-
-            // ✅ 等 1 秒 + 強制刷新 token，重試最多 3 次直到 verifiedEmail claim 出現
-            Swal.fire({title:'Loading bookings...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            const targetEmail = normalizeEmail(email);
-            let claimReady = false;
-            for(let i=0;i<3;i++){
-                await new Promise(r=>setTimeout(r,1000));
-                const tokenResult = await this.auth.currentUser.getIdTokenResult(true);
-                console.log(`[verifyCode] attempt ${i+1} claims:`, tokenResult.claims);
-                if(tokenResult.claims.verifiedEmail === targetEmail){ claimReady = true; break; }
-            }
-            if(!claimReady){
-                return Swal.fire({title:'Verification claim not ready', text:'Custom claim was not set. Check GAS executions log for setVerifiedEmailClaim_ errors.', icon:'error', customClass:{popup:'swal-saas'}});
-            }
-            await this.showBookingsForEmail(email);
-        },
-
-
-        async showBookingsForEmail(email) {
-            Swal.fire({title:'Loading...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            try{
-                // ✅ 直接用 email 查；Firestore rules 透過 verifiedEmail custom claim 驗證授權
-                const snap=await getDocs(query(collection(this.db,this.paths.bookings),where("email","==",normalizeEmail(email))));
-                const docs = snap.docs;
-                if(!docs.length)return Swal.fire({title:'No Bookings',text:`No active bookings found for ${email}.`,icon:'info',customClass:{popup:'swal-saas'}});
-                let html=`<div style="text-align:left;display:flex;flex-direction:column;gap:16px;max-height:400px;overflow-y:auto;padding:4px 8px 4px 4px;">`;
-                
-                docs.forEach(d=>{
-                    const b=d.data();
-                    const dd=(b.slotDate&&b.slotDate!=='General')?` · ${b.slotDate}`:'';
-                    const gradeTag = b.grade ? `<span style="background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:8px; font-size:12px; margin-left:6px; font-weight:900;">${escapeHtml(b.grade)}</span>` : '';
-                    
-                    html+=`
-                    <div style="background:white;padding:24px;border-radius:20px;border:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:20px;box-shadow:0 8px 20px rgba(0,0,0,0.04);">
-                        <div>
-                            <div style="font-weight:900;color:#1e293b;font-size:20px;">${escapeHtml(b.teacherName)}</div>
-                            <div style="color:var(--duo-green-dark);font-size:18px;font-weight:900;margin-top:6px;"><i class="far fa-clock"></i> ${escapeHtml(b.slotTime)}${escapeHtml(dd)}</div>
-                            <div style="color:#64748b;font-size:15px;font-weight:700;margin-top:8px;display:flex;align-items:center;"><i class="fas fa-user" style="margin-right:6px;"></i> ${escapeHtml(b.student)}${gradeTag}</div>
-                        </div>
-                        <button class="cancel-btn" data-bid="${d.id}" data-tid="${escapeHtml(b.teacherId)}" data-sid="${escapeHtml(b.slotId)}" data-teacher="${escapeHtml(b.teacherName)}" data-time="${escapeHtml(b.slotTime)}" data-date="${escapeHtml(b.slotDate||'')}" data-student="${escapeHtml(b.student)} (${escapeHtml(b.grade||'')})" data-parent="${escapeHtml(b.parent)}" data-email="${escapeHtml(b.email)}" style="background:#fef2f2;color:#ef4444;border:none;padding:12px 20px;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;transition:.2s;flex-shrink:0;">CANCEL</button>
-                    </div>`;
-                });
-                html+=`</div>`;
-                Swal.fire({title:'Manage Bookings',html,showConfirmButton:true,confirmButtonText:'DONE',width:700,customClass:{popup:'swal-saas swal-wide'},didOpen:()=>{document.querySelectorAll('.cancel-btn').forEach(btn=>{btn.addEventListener('mouseover',()=>btn.style.background='#fee2e2');btn.addEventListener('mouseout',()=>btn.style.background='#fef2f2');btn.addEventListener('click',()=>this.cancelByParent(btn.dataset,email));});}});
-            }catch(e){
-                console.error('[showBookingsForEmail] error:', e);
-                const msg = e?.code === 'permission-denied'
-                    ? `Firestore rules rejected the query. Likely cause: verifiedEmail claim mismatch. (${e.message})`
-                    : (e?.message || 'Could not load bookings.');
-                Swal.fire({title:'Error',text:msg,icon:'error',customClass:{popup:'swal-saas'}});
-            }
-        },
-
-
-        async cancelByParent(d,email) {
-            const res=await Swal.fire({title:'Cancel Booking?',customClass:{popup:'swal-saas'},html:`<div style="background:#fef2f2;border:2px solid #fecaca;border-radius:20px;padding:24px;text-align:left;margin-bottom:20px;"><div style="font-weight:900;font-size:22px;color:#991b1b;">${escapeHtml(d.teacher)}</div><div style="color:#dc2626;font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-times-circle"></i> ${escapeHtml(d.time)}${d.date?' · '+escapeHtml(d.date):''}</div></div>`,showCancelButton:true,confirmButtonColor:'#ef4444',confirmButtonText:'YES, CANCEL',cancelButtonColor:'#e2e8f0',cancelButtonText:'KEEP IT'});
-            if(!res.isConfirmed)return;
-            Swal.fire({title:'Cancelling...',customClass:{popup:'swal-saas'},didOpen:()=>Swal.showLoading()});
-            try{
-                const sr=doc(this.db,`${this.paths.teachersCollection}/${d.tid}/slots/${d.sid}`);
-                
-                // 先釋放時段
-                await runTransaction(this.db,async tx=>{
-                    const s=await tx.get(sr);
-                    // ✅ 修復：不清除 lockedBy，因為 rules 需要它來驗證「只有預約者能取消」
-                    // lockedBy 會在下次有人鎖定此 slot 時被覆蓋
-                    if(s.exists() && s.data().lockedBy === this.auth.currentUser.uid) {
-                        tx.update(sr,{status:'available',bookingRef:null,lockedAt:null});
-                    } else if(s.exists()) {
-                        throw "Not your booking";
-                    }
-                });
-                
-                // 嘗試刪除預約紀錄
-                try {
-                    await deleteDoc(doc(this.db,this.paths.bookings,d.bid));
-                } catch(delErr) {
-                    console.warn("Failed to delete booking doc due to rules, but slot is freed.", delErr);
-                }
-                
-                this.writeLog('Booking Cancelled', `Parent (${email}) cancelled booking for ${d.student} with ${d.teacher} on ${d.date} ${d.time}`);
-                
-                callGAS({action:"sendCancellation",email,parent:d.parent,student:d.student,teacherName:d.teacher,slotTime:d.time,slotDate:d.date||''});
-                await Swal.fire({title:'Cancelled',text:'Your booking has been removed.',icon:'success',confirmButtonText:'OK',customClass:{popup:'swal-saas'}});
-                this.showBookingsForEmail(email);
-            }catch(e){
-                console.error(e);
-                Swal.fire({title:'Error',text:'Failed to cancel. Please check Firebase rules.',icon:'error',customClass:{popup:'swal-saas'}});
-            }
-        }
+        // ✅ showManageFlow / showBookingsForEmail / cancelByParent 已被 Floating Dock + Bookings Drawer 取代
     };
 
 
