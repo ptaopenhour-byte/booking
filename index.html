@@ -1896,12 +1896,12 @@ function toggleBulletin() {
         renderChildren() {
             const list = document.getElementById('children-list');
             if (!this.children.length) {
-                list.innerHTML = `<div class="pta-empty-state"><div class="icon">👶</div><div>No children yet. Add your first one below.</div></div>`;
+                list.innerHTML = `<div class="pta-empty-state"><div class="icon"></div><div>No children yet. Add your first one below.</div></div>`;
                 return;
             }
             list.innerHTML = this.children.map(c => `
                 <div class="child-row">
-                    <div class="child-avatar">${c.name ? c.name.charAt(0).toUpperCase() : '👶'}</div>
+                    <div class="child-avatar">${c.name ? c.name.charAt(0).toUpperCase() : ''}</div>
                     <div class="child-info">
                         <div class="child-name">${escapeHtml(c.name)}</div>
                         <div class="child-meta">Grade ${escapeHtml(c.grade || '—')}${c.notes ? ' · ' + escapeHtml(c.notes) : ''}</div>
