@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PTA Open Hour</title>
     <!-- Favicon 貓頭鷹 -->
     <link rel="icon" href="logo.png">
@@ -693,7 +693,7 @@
         }
         .card-header::before { display: none; }
         .brand-lockup { display: flex; align-items: center; gap: 12px; }
-        .brand-logo {width: 64px; height: 64px;flex-shrink: 0;object-fit: contain;}
+        .brand-logo { width: clamp(30px, 4vw, 42px); height: clamp(30px, 4vw, 42px); object-fit: contain; }
         .brand-name { font-size: 14px; font-weight: 650; line-height: 1.35; white-space: nowrap; }
         .page-intro { min-width: 0; }
         .board-title {
@@ -1101,6 +1101,7 @@
             *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
     </style>
+    <link rel="stylesheet" href="booking-theme.css">
 </head>
 <body>
 
@@ -1316,7 +1317,7 @@
                 </div>
                 <span class="bulletin-title">Booking details</span>
             </div>
-            <button class="bulletin-toggle-btn" id="bulletin-toggle-btn" onclick="toggleBulletin()">
+            <button class="bulletin-toggle-btn" id="bulletin-toggle-btn" onclick="toggleBulletin()" aria-expanded="true" aria-controls="bulletin-content">
                 <i class="fas fa-chevron-up" id="bulletin-chevron"></i>
                 <span id="bulletin-toggle-text">Hide details</span>
             </button>
@@ -1450,12 +1451,14 @@ function toggleBulletin() {
     const text    = document.getElementById('bulletin-toggle-text');
     const isHidden = content.style.display === 'none';
     content.style.display = isHidden ? '' : 'none';
-    chevron.className = isHidden ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+    chevron.style.transform = isHidden ? '' : 'rotate(180deg)';
+    document.getElementById('bulletin-toggle-btn').setAttribute('aria-expanded', String(isHidden));
     text.innerText    = isHidden ? 'Hide details' : 'Show details';
 }
 </script>
 
 <script type="module">
+    import { mountBookingCalendar } from "./booking-calendar.mjs";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
     // ✅ 加入 setDoc (要寫家長 children profile)
     import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
@@ -1500,13 +1503,14 @@ function toggleBulletin() {
     }
 
 
-    const getMascotSVG = (id) => { 
-        const animals = ['🦊', '🐱', '🐼', '🐨', '🐶', '🐰', '🐯', '🐻', '🐮', '🐷', '🐸', '🐵', '🦄', '🦖', '🐙', '🦉'];
-        const colors = ['#FFD1DC', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E8BAFF', '#FFDFD3', '#F4F4F8', '#E2F0CB', '#FFB7B2', '#C7CEEA', '#B5EAD7', '#FF9CEE', '#B2FBA5', '#84D8FF', '#DDF4C5'];
-        const borders = ['#FF9EBB', '#FFB56B', '#E5E56B', '#6BE58B', '#6BA4FF', '#CA6BFF', '#FF9E8B', '#D1D1E0', '#B0D878', '#FF7A70', '#8F9DE3', '#72D1AC', '#FF5CE5', '#60E540', '#40B8FF', '#58CC02'];
-        const i = id % animals.length;
-        return `<svg viewBox="0 0 100 100" style="width:100%;height:100%;"><circle cx="50" cy="50" r="46" fill="${colors[i]}" stroke="${borders[i]}" stroke-width="8"/><text x="50" y="68" font-size="45" text-anchor="middle">${animals[i]}</text></svg>`; 
-    };
+    function getTeacherAvatar(teacher) {
+        const name = String(teacher.name || '').trim();
+        const initials = name ? (/\s/.test(name) ? name.split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join('') : Array.from(name).slice(0, 2).join('')).toUpperCase() : 'T';
+        if (teacher.image && (teacher.image.startsWith('data:image') || teacher.image.startsWith('https://'))) {
+            return `<img src="${escapeHtml(teacher.image)}" alt="${escapeHtml(name)}" class="teacher-photo">`;
+        }
+        return `<span class="teacher-initials" aria-hidden="true">${escapeHtml(initials)}</span>`;
+    }
 
 
     async function callGAS(payload) {
@@ -1896,12 +1900,12 @@ function toggleBulletin() {
         renderChildren() {
             const list = document.getElementById('children-list');
             if (!this.children.length) {
-                list.innerHTML = `<div class="pta-empty-state"><div class="icon"></div><div>No children yet. Add your first one below.</div></div>`;
+                list.innerHTML = `<div class="pta-empty-state"><div class="icon">👶</div><div>No children yet. Add your first one below.</div></div>`;
                 return;
             }
             list.innerHTML = this.children.map(c => `
                 <div class="child-row">
-                    <div class="child-avatar">${c.name ? c.name.charAt(0).toUpperCase() : ''}</div>
+                    <div class="child-avatar">${c.name ? c.name.charAt(0).toUpperCase() : '👶'}</div>
                     <div class="child-info">
                         <div class="child-name">${escapeHtml(c.name)}</div>
                         <div class="child-meta">Grade ${escapeHtml(c.grade || '—')}${c.notes ? ' · ' + escapeHtml(c.notes) : ''}</div>
@@ -2408,6 +2412,7 @@ function toggleBulletin() {
             
             // 搜尋模式強制切換到「挑選老師」的清單畫面
             this.currentView = 'teacher';
+            document.getElementById('main-content').dataset.view = 'teacher';
             document.getElementById('step-subject').style.display='none';
             document.getElementById('step-teacher').style.display='block';
             document.getElementById('step-time').style.display='none';
@@ -2426,6 +2431,7 @@ function toggleBulletin() {
 
 
         renderSubjects(teachers=this.data.teachers) {
+            document.getElementById('main-content').dataset.view = 'subject';
             this.currentView='subject'; 
             this.currentSubject=null;
             this.currentTeacher=null;
@@ -2471,6 +2477,7 @@ function toggleBulletin() {
 
 
         selectSubject(sub) {
+            document.getElementById('main-content').dataset.view = 'teacher';
             if (this.slotSnapshotUnsubscribe) { this.slotSnapshotUnsubscribe(); this.slotSnapshotUnsubscribe = null; }
             this.currentView='teacher'; 
             this.currentSubject=sub;
@@ -2500,9 +2507,7 @@ function toggleBulletin() {
             
             list.forEach((t,i)=>{
                 // ✅ 修復：同時支援 Firebase Storage URL 和 base64
-                const av = t.image && (t.image.startsWith('data:image') || t.image.startsWith('https://'))
-                    ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">`
-                    : getMascotSVG(t.mascot||0);
+                const av = getTeacherAvatar(t);
                 
                 const card = document.createElement('button');
                 card.type = 'button';
@@ -2524,6 +2529,8 @@ function toggleBulletin() {
 
 
         selectTeacher(t) {
+            document.getElementById('main-content').dataset.view = 'time';
+            if (document.getElementById('bulletin-content').style.display !== 'none') toggleBulletin();
             this.currentView = 'time';
             this.currentTeacher = t;
             
@@ -2562,84 +2569,27 @@ function toggleBulletin() {
 
         renderTeacherDetail(t) {
             const c = document.getElementById('single-teacher-container');
-            const byDate={};
-            t.slots.forEach(s=>{const d=s.date||'General';if(!byDate[d])byDate[d]=[];byDate[d].push(s);});
-            
-            let slotsHtml='';
-            if(!Object.keys(byDate).length){
-                const customMsg = t.noSlotsMessage 
-                    ? escapeHtml(t.noSlotsMessage).replace(/\n/g, '<br>') 
-                    : 'No slots available yet...';
-                    
-                slotsHtml=`
-                    <div style="background:#f8fafc; border:2px dashed #e2e8f0; border-radius:16px; padding:32px 20px; text-align:center; color:#64748b;">
-                        <div style="font-size:32px; margin-bottom:12px;">☕</div>
-                        <div style="font-size:16px; font-weight:800; line-height:1.5;">${customMsg}</div>
-                    </div>`;
-            } else {
-                for(const[date,ds]of Object.entries(byDate)){
-                    const lbl=date==='General'?'':`<div class="date-label"><i class="far fa-calendar-alt"></i> ${escapeHtml(date)}</div>`;
-                    const currentUid = this.auth?.currentUser?.uid;
-                    const btns=ds.map(s=>{
-                        if (s.status === 'booked') {
-                            return `<button disabled class="slot-btn slot-booked">${escapeHtml(s.time)}</button>`;
-                        } else if (s.status === 'locked' && (Date.now() - (s.lockedAt || 0) < 300000)) {
-                            // ✅ 修復：如果是自己鎖的，顯示為可點擊（允許重新預約）
-                            if (s.lockedBy === currentUid) {
-                                return `<button class="slot-btn slot-available" data-tid="${escapeHtml(t.id)}" data-sid="${escapeHtml(s.id)}" data-time="${escapeHtml(s.time)}" data-date="${escapeHtml(date)}" style="border-color:var(--duo-blue);color:var(--duo-blue);">${escapeHtml(s.time)} <i class="fas fa-redo" style="font-size:10px;"></i></button>`;
-                            }
-                            return `<button disabled class="slot-btn slot-locked">Booking <i class="fas fa-spinner"></i></button>`;
-                        } else {
-                            return `<button class="slot-btn slot-available" data-tid="${escapeHtml(t.id)}" data-sid="${escapeHtml(s.id)}" data-time="${escapeHtml(s.time)}" data-date="${escapeHtml(date)}">${escapeHtml(s.time)}</button>`;
-                        }
-                    }).join('');
-                    slotsHtml+=`${lbl}<div class="slots-row">${btns}</div>`;
-                }
+            if (this.calendarTeacherId !== t.id) {
+                this.calendarTeacherId = t.id;
+                this.calendarState = {};
             }
-            
-            // ✅ 修復：同時支援 Firebase Storage URL 和 base64
-            const av = t.image && (t.image.startsWith('data:image') || t.image.startsWith('https://'))
-                ? `<img src="${t.image}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;border:4px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.1);">`
-                : getMascotSVG(t.mascot||0);
-
-            const noteHtml = t.note ? `
-                <div class="teacher-resume-note" style="margin-top: 24px;">
-                    <div class="note-title"><i class="fas fa-info-circle"></i> About Teacher</div>
-                    <div class="note-content">${escapeHtml(t.note).replace(/\n/g, '<br>')}</div>
-                </div>` : '';
-            
-            // 如果老師有多個科目，在簡歷的地方把它拆成多個美美的 Tag
-            const subjectTagsHtml = (t.subject || '').split(',').map(s => 
-                `<span class="teacher-meta-tag"><i class="fas fa-book" style="color:#cbd5e1;"></i> ${escapeHtml(s.trim())}</span>`
-            ).join('');
-
-
-            c.innerHTML = `
-                <div class="teacher-card fade-in">
-                    <!-- 上半部：老師簡歷區 -->
-                    <div>
-                        <div class="teacher-resume-header">
-                            <div class="teacher-avatar-large">${av}</div>
-                            <div style="flex: 1;">
-                                <div class="teacher-name-large">${escapeHtml(t.name)}</div>
-                                <div class="teacher-meta-tags">
-                                    ${subjectTagsHtml}
-                                    <span class="teacher-meta-tag"><i class="fas fa-map-marker-alt" style="color:#cbd5e1;"></i> ${escapeHtml(t.location||'TBA')}</span>
-                                </div>
-                            </div>
-                        </div>
-                        ${noteHtml}
-                    </div>
-
-
-                    <!-- 下半部：預約時段區 -->
-                    <div class="slots-area">
-                        <div class="slots-area-title"><i class="fas fa-calendar-check" style="color:var(--duo-blue);"></i> Available Slots</div>
-                        ${slotsHtml}
-                    </div>
-                </div>`;
-                
-            c.querySelectorAll('.slot-available').forEach(btn=>btn.addEventListener('click',()=>this.book(btn.dataset.tid,btn.dataset.sid,btn.dataset.time,btn.dataset.date)));
+            const note = t.note ? `<details class="meeting-description" ${window.matchMedia('(min-width: 768px)').matches ? 'open' : ''}><summary>About this meeting</summary><p>${escapeHtml(t.note).replace(/\n/g, '<br>')}</p></details>` : '';
+            c.innerHTML = `<div class="meeting-layout">
+                <aside class="meeting-profile" aria-label="Teacher information">
+                    <div class="meeting-avatar">${getTeacherAvatar(t)}</div>
+                    <p class="meeting-host">Teacher meeting</p>
+                    <h2>${escapeHtml(t.name)}</h2>
+                    <p class="meeting-subject">${escapeHtml(t.subject || '')}</p>
+                    <div class="meeting-location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>${escapeHtml(t.location || 'Location to be announced')}</span></div>
+                    ${note}
+                    <p class="meeting-hint">Choose a date and an available time to meet with your child's teacher.</p>
+                </aside>
+                <div class="meeting-schedule"></div>
+            </div>`;
+            this.calendarState = mountBookingCalendar(c.querySelector('.meeting-schedule'), t, {
+                state: this.calendarState, uid: this.auth?.currentUser?.uid,
+                onBook: (...args) => this.book(...args)
+            });
         },
 
 
@@ -2655,7 +2605,7 @@ function toggleBulletin() {
                     html:'You need at least one child profile before booking.<br><br>Click below to add one.',
                     icon:'info',
                     showCancelButton:true,
-                    confirmButtonText:' Open Children Manager',
+                    confirmButtonText:'👶 Open Children Manager',
                     cancelButtonText:'Cancel',
                     customClass:{popup:'swal-saas'}
                 });

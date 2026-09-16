@@ -1,0 +1,135 @@
+/* Reference: user-provided Lark scheduling screenshot. */
+:root { --accent: #356bff; --ink: #242830; --muted: #646c7a; --line: #e9edf4; --duo-blue: #356bff; --duo-blue-dark: #2458e6; }
+body { margin: 0; background: radial-gradient(ellipse at 22% 94%, #e2ecff 0, transparent 66%), #f3f7ff; color: var(--ink); font-weight: 400; }
+html { background: #f3f7ff; }
+h1, h2, h3, p { margin-top: 0; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+.page-content { max-width: 1120px; }
+.card-header { margin: 0 0 28px; padding: 20px 0 0; grid-template-columns: 1fr; gap: 34px; background: transparent; border: 0; min-height: 0; }
+.brand-lockup { min-height: 64px; }
+.brand-logo { width: 64px; height: 64px; flex-shrink: 0; }
+.brand-name { font-size: 18px; font-weight: 600; }
+.board-title { font-size: 30px; line-height: 1.25; letter-spacing: -.035em; color: var(--ink); font-weight: 600; }
+.board-subtitle { font-size: 14px; }
+#floating-dock { top: 28px; right: max(24px, calc((100vw - 1120px) / 2)); background: transparent; gap: 8px; }
+.dock-btn, .dock-btn.dock-profile { background: transparent; }
+.dock-btn.dock-profile { background: #e6edfb; }
+#bulletin-board { border: 1px solid rgba(225,232,244,.8); box-shadow: none; }
+.bulletin-header { min-height: 46px; background: #fbfcff; }
+.bulletin-title::before { background: #a1aab9; }
+.booking-window-panel, .announcement-panel { padding: 16px 20px; }
+.board { min-height: 440px; padding: 26px; border-radius: 16px; background: #fff; box-shadow: 0 10px 36px rgba(43,70,120,.055); }
+#board-toolbar { display: grid; }
+#board-toolbar[style*="none"] { display: none !important; }
+.page-content[data-view="time"] .search-box { display: none; }
+.progress-steps { border: 0; background: #f7f9fd; border-radius: 9px; }
+.step.active, .date-label { color: var(--accent); }
+.step.active .step-number { background: var(--accent); border-color: var(--accent); }
+.subject-icon { background: #eef3ff; color: var(--accent); }
+.subject-card:hover, .teacher-select-card:hover { background: #f6f9ff; }
+.subjects-grid { border-color: var(--line); }
+.subject-card, .teacher-select-card { border-bottom-color: var(--line); }
+.teacher-photo { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.teacher-initials { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: 50%; color: #3962b7; background: #e8effc; font-size: 17px; font-weight: 500; }
+.meeting-layout { display: grid; grid-template-columns: 270px minmax(0,1fr); min-height: 490px; border: 1px solid #edf0f7; border-radius: 12px; overflow: hidden; }
+.meeting-profile { padding: 32px; background: #f7faff; overflow-wrap: anywhere; }
+.meeting-avatar { width: 48px; height: 48px; margin-bottom: 14px; }
+.meeting-host { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.meeting-profile h2 { font-size: 22px; font-weight: 600; line-height: 1.4; letter-spacing: -.025em; margin-bottom: 6px; }
+.meeting-subject { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+.meeting-location { display: flex; gap: 12px; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+.meeting-location svg, .schedule-timezone svg { width: 17px; height: 17px; flex-shrink: 0; color: #8791a3; margin-top: 2px; }
+.meeting-description summary { cursor: pointer; font-size: 13px; font-weight: 500; padding: 12px 0; }
+.meeting-description summary:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
+.meeting-description p, .meeting-hint { font-size: 14px; line-height: 1.7; }
+.meeting-hint { color: var(--muted); margin: 28px 0 0; }
+.meeting-schedule { padding: 32px; min-width: 0; }
+.schedule-title { font-size: 20px; font-weight: 600; letter-spacing: -.025em; margin: 0 0 24px; }
+.schedule-picker { display: grid; grid-template-columns: minmax(280px,1.4fr) minmax(155px,1fr); gap: 28px; }
+.calendar-panel, .time-panel { min-width: 0; }
+.calendar-month { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.calendar-month h3, .time-panel h3 { font-size: 14px; line-height: 1.5; font-weight: 500; margin: 0; }
+.calendar-navigation { display: flex; gap: 2px; }
+.calendar-navigation button { width: 40px; height: 44px; border: 0; background: transparent; border-radius: 8px; color: #525d70; }
+.calendar-navigation button:disabled { color: #c8ced8; }
+.calendar-navigation svg { width: 18px; height: 18px; vertical-align: middle; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); }
+.calendar-weekdays { margin-bottom: 10px; }
+.calendar-weekdays span { font-size: 11px; color: #808a9b; text-align: center; padding: 8px 0; }
+.calendar-grid { row-gap: 4px; }
+.calendar-day { display: flex; justify-content: center; align-items: center; position: relative; min-height: 44px; width: 100%; border: 0; border-radius: 50%; background: transparent; color: #939cac; font-size: 14px; font-weight: 400; isolation: isolate; }
+.calendar-day::before { content: ''; position: absolute; width: 34px; height: 34px; z-index: -1; border-radius: 50%; }
+.calendar-day.has-slots { color: var(--ink); }
+.calendar-day.has-slots::before { background: #f0f1f3; }
+.calendar-day.selected { color: white; }
+.calendar-day.selected::before { background: var(--accent); }
+.calendar-day.today::after { content: ''; position: absolute; bottom: 1px; width: 3px; height: 3px; border-radius: 50%; background: var(--accent); }
+.calendar-day.has-slots:hover::before { background: #e2eaff; }
+.calendar-day.selected:hover::before { background: #2458e6; }
+.schedule-timezone { display: flex; gap: 10px; font-size: 13px; color: var(--muted); margin: 32px 0 0; line-height: 1.5; }
+.time-panel { padding-top: 12px; }
+.time-panel h3 { margin-bottom: 20px; }
+.time-list { display: grid; gap: 10px; max-height: 360px; overflow-y: auto; padding: 3px; margin: -3px; }
+.time-list .slot-btn { width: 100%; min-height: 44px; background: #fff; border: 1px solid #95afff; color: var(--accent); font-size: 14px; font-weight: 500; border-radius: 6px; box-shadow: none; padding: 10px 6px; }
+.time-list .slot-available:hover { background: #eff4ff; transform: none; box-shadow: none; }
+.time-list .slot-btn:active { transform: none; }
+.time-list .slot-booked, .time-list .slot-locked { border-color: #e5e8ee; background: #fafbfc; color: #8993a3; text-decoration: none; opacity: 1; }
+.time-list .slot-btn span { display: block; font-size: 11px; margin-top: 4px; }
+.schedule-empty { font-size: 14px; color: var(--muted); line-height: 1.7; }
+.calendar-other { display: block; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: white; font-size: 14px; margin-top: 12px; }
+.calendar-other.selected { border-color: var(--accent); color: var(--accent); background: #f3f6ff; }
+.back-btn { border: 0; background: transparent; color: var(--muted); padding-left: 0; font-weight: 500; }
+.back-btn:hover { background: transparent; transform: none; color: var(--accent); }
+#step-time > div:first-child, #step-teacher > div:first-child { margin-bottom: 16px !important; }
+#landing-page, #login-gate, #loading-overlay { background: radial-gradient(ellipse at bottom left, #e2ecff, transparent 70%), #f3f7ff; overflow-y: auto; }
+.landing-card, .gate-card { border: 0; border-radius: 14px; box-shadow: 0 12px 40px rgba(43,70,120,.07); }
+.landing-enter-btn, .gate-btn, .btn-primary, .btn-success { background: var(--accent); border-color: var(--accent); }
+.landing-enter-btn:hover, .gate-btn:hover, .btn-primary:hover, .btn-success:hover { background: #2458e6; box-shadow: none; }
+.landing-footer { font-weight: 400; line-height: 1.7; }
+.swal2-popup.swal-saas { border-radius: 14px !important; font-family: Inter, sans-serif; }
+.swal-saas .swal2-title { color: var(--ink) !important; font-weight: 600 !important; }
+.swal-saas .swal2-confirm, .swal-saas .swal2-cancel { border: 0 !important; border-radius: 8px !important; font-weight: 500 !important; }
+.swal-saas .swal2-confirm { background: var(--accent) !important; }
+.swal-saas .swal2-confirm:active, .swal-saas .swal2-cancel:active { transform: none !important; }
+@media (min-width: 768px) and (max-width: 1100px) {
+    .meeting-layout { grid-template-columns: 220px minmax(0,1fr); }
+    .meeting-profile, .meeting-schedule { padding: 24px; }
+    .schedule-picker { grid-template-columns: minmax(0,1fr); gap: 24px; }
+    .calendar-panel { max-width: 360px; }
+    .time-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 767px) {
+    body { padding: 0 16px calc(92px + env(safe-area-inset-bottom)); }
+    .card-header { padding: 16px 0 0; gap: 22px; margin: 0 0 22px; }
+    .brand-lockup { min-height: 44px; gap: 10px; }
+    .brand-logo { width: 44px; height: 44px; }
+    .brand-name { font-size: 16px; }
+    .board-title { font-size: 26px; }
+    .board-subtitle { line-height: 1.6; }
+    .board { padding: 16px; border-radius: 12px; }
+    .meeting-layout { grid-template-columns: minmax(0,1fr); min-height: 0; }
+    .meeting-profile { padding: 18px; display: grid; grid-template-columns: 40px 1fr; column-gap: 12px; align-items: center; }
+    .meeting-avatar { width: 40px; height: 40px; grid-row: 1 / 3; margin: 0; }
+    .meeting-host { display: none; }
+    .meeting-profile h2 { font-size: 20px; grid-column: 2; margin: 0; }
+    .meeting-subject { grid-column: 2; margin: 0; }
+    .meeting-hint { display: none; }
+    .meeting-description { grid-column: 1 / -1; }
+    .meeting-description p { font-size: 13px; }
+    .meeting-location { grid-column: 1 / -1; margin: 16px 0 0; font-size: 13px; }
+    .meeting-schedule { padding: 22px 12px; }
+    .schedule-title { font-size: 18px; margin-bottom: 16px; padding: 0 4px; }
+    .schedule-picker { grid-template-columns: minmax(0,1fr); gap: 24px; }
+    .calendar-navigation button { width: 36px; }
+    .calendar-day { min-height: 44px; font-size: 13px; }
+    .calendar-day::before { width: 30px; height: 30px; }
+    .calendar-month { padding-inline: 4px; }
+    .schedule-timezone { font-size: 12px; margin-top: 22px; }
+    .time-panel { padding: 20px 4px 0; border-top: 1px solid var(--line); }
+    .time-list { grid-template-columns: repeat(2,minmax(0,1fr)); max-height: none; overflow: visible; }
+    .schedule-empty { grid-column: 1 / -1; }
+    #floating-dock { top: auto; right: 0; background: #fff; gap: 0; }
+    .dock-btn.dock-profile { background: transparent; }
+    input, select, textarea, .search-input, .saas-input, .gate-input { font-size: 16px; }
+}
