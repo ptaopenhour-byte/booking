@@ -1474,9 +1474,7 @@ function toggleBulletin() {
     };
 
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwFG_OKFUt0S8EfUDkAGK75zhaypOxwm2vyQrzJ21g4k1oVhc47JiVnatmcZJ0ddpII/exec";
-    // ✅ GAS Secret Token（必須和 GAS 端的 CONFIG.API_SECRET 一致）
-    const GAS_SECRET = "artmrmbniemmoegrgr";
+    // Authorization uses Firebase ID tokens, never a shared browser secret.
 
 
     function escapeHtml(t) {
@@ -1514,25 +1512,34 @@ function toggleBulletin() {
 
 
     async function callGAS(payload) {
-        const url = window._GAS_URL || GAS_URL;
-        // ✅ 自動附加 secret token，GAS 端會驗證
-        payload.secret = GAS_SECRET;
         try {
-            const r = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify(payload)
-            });
-            const text = await r.text();
-            try {
-                return JSON.parse(text);
-            } catch {
-                return { ok: false, error: text || `HTTP ${r.status}` };
+            // Resolve the deployed endpoint before OTP as well as after login.
+            // Missing configuration must never silently use a legacy backend.
+            if (!window._GAS_URL) {
+                const config = await getDoc(doc(app.db, app.paths.config));
+                if (!config.exists() || config.data().apiVersion !== 3) return {ok:false,error:'Service is being updated. Please retry later.'};
+                window._GAS_URL = config.data().gasUrl;
             }
-        }
-        catch(e) {
-            return { ok:false, error: e?.message || 'Network error' };
-        }
+            if (!/^https:\/\/script.google.com\/macros\/s\/[^/]+\/exec$/.test(window._GAS_URL || '')) return {ok:false,error:'Backend is not configured. Please contact the school.'};
+            const idToken = await app.auth.currentUser.getIdToken();
+            const r = await fetch(window._GAS_URL, {
+                method: 'POST', headers: {'Content-Type':'text/plain'},
+                body: JSON.stringify({...payload, idToken})
+            });
+            const result = await r.json();
+            if (result.apiVersion !== 3) return {ok:false, error:'Backend upgrade required. Booking is paused.'};
+            return result;
+        } catch(e) { return {ok:false, uncertain:true, error:'Connection interrupted. Check My Bookings, then retry the same operation.'}; }
+    }
+    async function mutateGAS(payload) {
+        const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload))))).map(n=>n.toString(16).padStart(2,'0')).join('');
+        const key = 'pta-operation-' + app.auth.currentUser.uid + '-' + digest;
+        const requestId = sessionStorage.getItem(key) || crypto.randomUUID();
+        sessionStorage.setItem(key, requestId);
+        const result = await callGAS({...payload, requestId});
+        if (!result.uncertain) sessionStorage.removeItem(key);
+        if (!result.ok) throw new Error(result.error || 'Request failed');
+        return result;
     }
     const APP_TIMEZONE = 'Asia/Taipei';
 
@@ -1802,7 +1809,7 @@ function toggleBulletin() {
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
-            const vr = await callGAS({ action: 'verifyCode', email, code, uid: this.auth.currentUser.uid });
+            const vr = await callGAS({ action: 'verifyCode', email, code });
             if (!vr.ok) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enter';
@@ -1827,6 +1834,8 @@ function toggleBulletin() {
         },
 
         async logout() {
+            if(this.notificationUnsub)this.notificationUnsub();
+            this.notifications=[];
             if (!confirm('Sign out? You will need to verify your email again next time.')) return;
             if (this.bookingsUnsub) { this.bookingsUnsub(); this.bookingsUnsub = null; }
             if (this.slotSnapshotUnsubscribe) { this.slotSnapshotUnsubscribe(); this.slotSnapshotUnsubscribe = null; }
@@ -2100,6 +2109,11 @@ function toggleBulletin() {
         // MY BOOKINGS
         // ════════════════════════════════════
         subscribeMyBookings() {
+            if (this.notificationUnsub) this.notificationUnsub();
+            this.notificationUnsub = onSnapshot(query(collection(this.db,'artifacts/ibsh-pta-v2/notification_outbox'),where('email','==',this.verifiedEmail)),snap=>{
+                this.notifications=snap.docs.map(d=>({id:d.id,...d.data()}));
+                if(!document.getElementById('bookings-modal').classList.contains('hidden'))this.renderBookings();
+            },()=>{ this.notificationsUnavailable=true; });
             if (this.bookingsUnsub) this.bookingsUnsub();
             const q = query(collection(this.db, this.paths.bookings), where('email', '==', this.verifiedEmail));
             this.bookingsUnsub = onSnapshot(q, snap => {
@@ -2175,76 +2189,53 @@ function toggleBulletin() {
                 ? history.sort(sortByDateTime).map(b => renderRow(b, true)).join('')
                 : `<div class="pta-empty-state"><div class="icon">🗂️</div><div>No past bookings.</div></div>`;
 
+            const notices=(this.notifications||[]).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
+            const labels={pending:'Queued',sending:'Sending / awaiting result',sent:'Sent',deferred:'Delayed — safe retry available',unknown:'Delivery uncertain — contact school; do not resend',superseded:'No longer needed'};
+            a.innerHTML += '<section style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:16px"><h3>Notification status</h3>'+
+                (this.notificationsUnavailable?'Status unavailable. Please refresh.':notices.length?notices.map(n=>`<div style="padding:10px 0;font-size:13px"><strong>${escapeHtml(n.kind)}</strong> · ${escapeHtml(n.payload?.teacherName||'')}<br>${escapeHtml(labels[n.status]||n.status)}<br><small>Ref: ${escapeHtml(n.id.slice(0,12))}</small>${n.status==='deferred'?` <button data-retry-notice="${escapeHtml(n.id)}">Retry</button>`:''}</div>`).join(''):'No notifications requested.')+'</section>';
+            a.querySelectorAll('[data-retry-notice]').forEach(btn=>btn.addEventListener('click',async()=>{
+                btn.disabled=true;
+                const result=await callGAS({action:'retryNotification',notificationId:btn.dataset.retryNotice});
+                if(!result.ok)alert(result.error);
+                btn.disabled=false;
+            }));
             a.querySelectorAll('[data-cancel]').forEach(btn => btn.addEventListener('click', () => this.cancelMyBooking(btn.dataset.cancel)));
             this.switchBookingsTab(this._bookingsTab);
         },
 
         async cancelMyBooking(bookingId) {
             const b = this.myBookings.find(x => x.id === bookingId);
-            if (!b) return;
-            if (!confirm(`Cancel your booking with ${b.teacherName} at ${b.slotTime}?`)) return;
-
+            if (!b || !confirm(`Cancel your booking with ${b.teacherName} at ${b.slotTime}?`)) return;
             try {
-                const sr = doc(this.db, `${this.paths.teachersCollection}/${b.teacherId}/slots/${b.slotId}`);
-                await runTransaction(this.db, async tx => {
-                    const s = await tx.get(sr);
-                    if (s.exists()) tx.update(sr, { status: 'available', bookingRef: null, lockedAt: null });
-                });
-                try { await deleteDoc(doc(this.db, this.paths.bookings, b.id)); } catch(e) { console.warn('Booking delete blocked by rules:', e); }
-                this.writeLog('Booking Cancelled', `Parent (${this.verifiedEmail}) cancelled booking for ${b.student} with ${b.teacherName} on ${b.slotDate || ''} ${b.slotTime}`);
-                callGAS({ action: 'sendCancellation', email: this.verifiedEmail, parent: b.parent, student: b.student + (b.grade ? ' (' + b.grade + ')' : ''), teacherName: b.teacherName, slotTime: b.slotTime, slotDate: b.slotDate || '' });
-            } catch(e) {
-                console.error(e);
-                alert('Failed to cancel: ' + (e?.message || e));
-            }
+                await mutateGAS({action:'cancel', bookingId});
+                Swal.fire({title:'Booking cancelled', text:'The slot has been released. Cancellation notifications are queued, not yet confirmed sent.', icon:'success'});
+            } catch(e) { Swal.fire({title:'Cancellation not confirmed', text:e.message, icon:'error'}); }
         },
 
-
         async checkSystemConfig() {
+            this.isOpen = false;
             try {
-                // ✅ 防刷：限制 config 讀取頻率
-                if (!RateLimiter.check('config')) {
-                    this.revealPage();
-                    this.showEmpty("Too Many Requests", "Please wait a moment and try again.");
-                    return;
-                }
                 const snap = await getDoc(doc(this.db, this.paths.config));
-                if (snap.exists()) {
-                    const { start, end, announcement, gasUrl } = snap.data();
-                    if (gasUrl) window._GAS_URL = gasUrl;
-                    renderBulletin({ start, end, announcement });
-                    const nowMs = Date.now();
-                    const s = parseConfigDate(start);
-                    const e = parseConfigDate(end);
-
-                    if (!s || !e) {
-                        console.warn('Invalid system_settings start/end. Falling back to open mode.', { start, end });
-                        this.activateOpenState({ bypassRateLimit: true });
-                    } else if (nowMs >= s.getTime() && nowMs <= e.getTime()) {
-                        this.activateOpenState();
-                        this.startCountdown(e, 'close');
-                    } else if (nowMs < s.getTime()) {
-                        this.isOpen = false;
-                        this.setStatus('soon');
-                        this.setBadge('soon','Opening Soon');
-                        this.startCountdown(s, 'open');
-                        this.showEmpty("Schedule Opens Soon", `Bookings open on ${formatDateTime(start)}`);
-                        this.revealPage(); // <-- 補上解除載入畫面
-                    } else {
-                        // 已經過了結束時間，確保狀態為關閉
-                        this.isOpen = false; 
-                        this.setStatus('closed');
-                        this.setBadge('closed','Booking Closed');
-                        this.showEmpty("Schedule Closed", "The booking period has ended. Thank you!");
-                        this.revealPage(); // <-- 補上解除載入畫面
-                    }
+                if (!snap.exists() || snap.data().apiVersion !== 3) throw new Error('Booking setup is being updated. Please retry later.');
+                const c = snap.data();
+                if (c.gasUrl) window._GAS_URL = c.gasUrl;
+                const state = await callGAS({action:'status'});
+                if (!state.ok) throw new Error(state.error);
+                this.currentEventId = state.eventId;
+                this.serverOffset = state.serverNow - Date.now();
+                renderBulletin(state);
+                if (state.open) {
+                    this.activateOpenState();
+                    this.startCountdown(new Date(state.end + ':00+08:00'), 'close');
                 } else {
-                    renderBulletin({});
-                    this.isOpen = true; this.setStatus('open'); this.setBadge('open','Booking Open'); this.loadSchedule();
+                    this.setStatus('closed'); this.setBadge('closed','Booking Paused');
+                    this.showEmpty('Booking is not open', 'Booking is paused or outside the booking window. Please retry later.');
+                    this.revealPage();
                 }
-            } catch {
-                renderBulletin({});
-                this.isOpen = true; this.setStatus('open'); this.setBadge('open','Booking Open'); this.loadSchedule();
+            } catch(e) {
+                this.isOpen = false; this.setStatus('closed'); this.setBadge('closed','Temporarily Paused');
+                this.showEmpty('Booking temporarily paused', e.message || 'Unable to verify availability. Please retry later.');
+                this.revealPage();
             }
         },
 
@@ -2284,7 +2275,7 @@ function toggleBulletin() {
                     box.classList.add('hidden');
                     return;
                 }
-                const diff = targetMs - Date.now();
+                const diff = targetMs - (Date.now() + (this.serverOffset || 0));
                 if (diff <= 0) {
                     clearInterval(this.countdownTimer); box.classList.add('hidden');
                     if (mode === 'close') { 
@@ -2296,7 +2287,7 @@ function toggleBulletin() {
                         // 強制關閉任何可能開著的輸入框防呆
                         if(Swal.isVisible()) Swal.close();
                     } else {
-                        this.activateOpenState({ bypassRateLimit: true });
+                        this.checkSystemConfig();
                     }
                     return;
                 }
@@ -2557,7 +2548,7 @@ function toggleBulletin() {
             if (this.slotSnapshotUnsubscribe) this.slotSnapshotUnsubscribe();
             this.slotSnapshotUnsubscribe = onSnapshot(collection(this.db, `${this.paths.teachersCollection}/${t.id}/slots`), ss => {
                 t.slots = [];
-                ss.forEach(s => t.slots.push({...s.data(), id:s.id}));
+                ss.forEach(s => { if (s.data().eventId === this.currentEventId) t.slots.push({...s.data(), id:s.id}); });
                 t.slots.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||a.time.localeCompare(b.time));
                 
                 if (this.currentView === 'time' && this.currentTeacher?.id === t.id) {
@@ -2617,25 +2608,7 @@ function toggleBulletin() {
             const t = this.data.teachers.find(x => x.id === tid); if (!t) return;
             const dd = (dateLabel && dateLabel !== 'General') ? `on ${escapeHtml(dateLabel)}` : '';
 
-            // --- 步驟 0: 鎖定時段 ---
-            const slotRef = doc(this.db, `${this.paths.teachersCollection}/${tid}/slots/${slotId}`);
-            const myUid = this.auth.currentUser.uid;
-            try {
-                await runTransaction(this.db, async tx => {
-                    const sf = await tx.get(slotRef);
-                    const data = sf.data();
-                    if (!sf.exists() || data.status === 'booked') throw "unavailable";
-                    if (data.status === 'locked') {
-                        const isMyLock = data.lockedBy === myUid;
-                        const isExpired = Date.now() - (data.lockedAt || 0) >= 300000;
-                        if (!isMyLock && !isExpired) throw "unavailable";
-                    }
-                    tx.update(slotRef, { status: 'locked', lockedAt: Date.now(), lockedBy: myUid });
-                });
-            } catch (e) {
-                return Swal.fire({icon:'warning', title:'Too Slow! 🏃💨', text:'Someone else just started booking this time. Please pick another one.', customClass:{popup:'swal-saas'}});
-            }
-
+            // The backend atomically allocates the slot when confirmation is submitted.
             // 必須先有家長檔案
             if (!this.parents.length) {
                 const r = await Swal.fire({
@@ -2648,7 +2621,6 @@ function toggleBulletin() {
                     customClass:{popup:'swal-saas'}
                 });
                 if (r.isConfirmed) this.openParentsModal();
-                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
                 return;
             }
 
@@ -2671,7 +2643,7 @@ function toggleBulletin() {
                     </div>
                     <div style="display:flex;flex-direction:column;text-align:left;">
                         <label style="font-weight:900;font-size:14px;color:#64748b;margin-bottom:6px;margin-left:4px;text-transform:uppercase;display:block;">For Which Child? <span style="color:#ef4444">*</span></label>
-                        <select id="sw-child" class="child-select">
+                        <p style="font-size:13px;color:#64748b">Per child, per activity: up to 10 teachers, one booking per teacher. Availability is confirmed when you submit.</p><select id="sw-child" class="child-select">
                             <option value="">— Select a child —</option>
                             ${childOptions}
                         </select>
@@ -2712,101 +2684,19 @@ function toggleBulletin() {
                 }
             });
 
-            if (!isConfirmed || !form) {
-                runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                return;
-            }
-
-            // --- 步驟 2: 上限 / 同老師檢查（用 verifiedEmail）---
-            Swal.fire({title:'Reserving...', customClass:{popup:'swal-saas'}, didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
-
+            if (!isConfirmed || !form) return;
+            Swal.fire({title:'Reserving...', didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
             try {
-                const existingSnap = await getDocs(query(collection(this.db, this.paths.bookings), where("email","==", this.verifiedEmail)));
-                const sameTeacher = existingSnap.docs.some(d => d.data().teacherId === tid);
-                const existingCount = existingSnap.size;
-
-                if (sameTeacher) {
-                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                    return Swal.fire({title:'Already Booked', text:`You already have a booking with ${t.name}. Only one time slot per teacher is allowed.`, icon:'warning', customClass:{popup:'swal-saas'}});
-                }
-                if (existingCount >= BOOKING_LIMIT) {
-                    runTransaction(this.db, async tx => { const s = await tx.get(slotRef); if(s.exists() && s.data().lockedBy === myUid) tx.update(slotRef, {status:'available',lockedAt:null,lockedBy:null}); }).catch(e => console.warn('Unlock failed:', e));
-                    return Swal.fire({title:'Limit Reached', text:`You already have ${existingCount} bookings. Maximum is ${BOOKING_LIMIT}.`, icon:'warning', customClass:{popup:'swal-saas'}});
-                }
-
-                // --- 步驟 3: 寫入預約 ---
-                await runTransaction(this.db, async tx => {
-                    const sf = await tx.get(slotRef);
-                    if (!sf.exists() || sf.data().status === 'booked') throw "Slot unavailable";
-                    const slotData = sf.data();
-                    if (slotData.status === 'locked' && slotData.lockedBy && slotData.lockedBy !== myUid) throw "Not your lock";
-
-                    const bRef = doc(collection(this.db, this.paths.bookings));
-                    tx.set(bRef, {
-                        uid: myUid,
-                        teacherId: tid,
-                        teacherName: t.name,
-                        teacherEmail: t.email || '',
-                        location: t.location || '',
-                        slotId,
-                        slotTime: timeLabel,
-                        slotDate: dateLabel,
-                        student: form.child.name,
-                        grade: form.child.grade,
-                        childId: form.childId,
-                        parent: form.parentObj.name,
-                        parentId: form.parentId,
-                        parentRelation: form.parentObj.relation || '',
-                        email: this.verifiedEmail,
-                        message: form.message,
-                        sendReminder: form.sendReminder,
-                        createdAt: new Date().toISOString()
-                    });
-                    tx.update(slotRef, { status: 'booked', bookingRef: bRef.id, lockedAt: null });
-                });
-
-                // 本地更新
-                const localSlot = t.slots.find(x => x.id === slotId);
-                if (localSlot) {
-                    localSlot.status = 'booked';
-                    if (this.currentView === 'time' && this.currentTeacher?.id === tid) {
-                        this.renderTeacherDetail(t);
-                    }
-                }
-
-                const studentLabel = `${form.child.name} (${form.child.grade})`;
-                this.writeLog('Booking Created', `Parent (${this.verifiedEmail}) booked ${studentLabel} with ${t.name} on ${dateLabel} ${timeLabel}`);
-
-                if (form.sendReminder) {
-                    callGAS({
-                        action:"sendConfirmation",
-                        email: this.verifiedEmail,
-                        parent: form.parentObj.name,
-                        student: studentLabel,
-                        teacherName: t.name,
-                        teacherEmail: t.email || '',
-                        slotTime: timeLabel,
-                        slotDate: dateLabel,
-                        location: t.location || '',
-                        message: form.message
-                    });
-                }
-
-                Swal.fire({
-                    title:'Booking Confirmed!',
-                    html:`<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:20px;padding:24px;text-align:left;margin-top:20px;"><div style="font-weight:900;font-size:22px;color:#166534;">${escapeHtml(t.name)}</div><div style="color:var(--duo-green-dark);font-size:20px;font-weight:900;margin-top:8px;"><i class="far fa-check-circle"></i> ${escapeHtml(timeLabel)} ${dd}</div><div style="color:#166534;font-weight:700;font-size:16px;margin-top:8px;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(t.location||'TBA')}</div><div style="color:#166534;font-weight:700;font-size:14px;margin-top:8px;"><i class="fas fa-user"></i> ${escapeHtml(studentLabel)}</div></div>${form.sendReminder ? `<p style="font-size:14px;color:#64748b;font-weight:700;margin-top:20px;">📧 Confirmation sent to <strong>${escapeHtml(this.verifiedEmail)}</strong></p>` : `<p style="font-size:14px;color:#94a3b8;font-weight:700;margin-top:20px;">No confirmation email sent (you opted out).</p>`}`,
-                    confirmButtonText:'AWESOME!',
-                    customClass:{popup:'swal-saas'}
-                });
-            } catch (e) {
-                console.error("Booking failed:", e);
-                const errText = e?.code === 'permission-denied'
-                    ? 'Booking blocked by Firebase rules.'
-                    : (typeof e === 'string' ? e : 'Slot already taken. Please select another time.');
-                Swal.fire({title:'Oops!', text:errText, icon:'error', customClass:{popup:'swal-saas'}});
+                const result = await mutateGAS({action:'book', eventId:this.currentEventId,
+                    teacherId:tid, slotId, childId:form.childId, parentId:form.parentId,
+                    message:form.message, sendReminder:form.sendReminder});
+                Swal.fire({title:'Booking confirmed', icon:'success',
+                    text:`${form.child.name} · ${t.name} · ${dateLabel} ${timeLabel}. ${result.notificationStatus === 'pending' ? 'Confirmation email queued. Check My Bookings for delivery status.' : 'Email notification not requested.'}`,
+                    customClass:{popup:'swal-saas'}});
+            } catch(e) {
+                Swal.fire({title:'Booking not confirmed', text:e.message, icon:'error', customClass:{popup:'swal-saas'}});
             }
         },
-
 
         // ✅ showManageFlow / showBookingsForEmail / cancelByParent 已被 Floating Dock + Bookings Drawer 取代
     };
