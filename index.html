@@ -1459,6 +1459,7 @@ function toggleBulletin() {
 
 <script type="module">
     import { mountBookingCalendar } from "./booking-calendar.mjs";
+    import { confirmAccountDeletion } from "./account-deletion.mjs";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
     // ✅ 加入 setDoc (要寫家長 children profile)
     import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
@@ -1703,7 +1704,7 @@ function toggleBulletin() {
             document.getElementById('dock-parents-btn').addEventListener('click', () => this.openParentsModal());
             document.getElementById('dock-bookings-btn').addEventListener('click', () => this.openBookingsModal());
             document.getElementById('dock-logout-btn').addEventListener('click', () => this.logout());
-            document.getElementById('dock-profile-btn').addEventListener('click', () => alert(`Signed in as: ${this.verifiedEmail || 'unknown'}`));
+            document.getElementById('dock-profile-btn').addEventListener('click', () => this.openAccountProfile());
 
             // Modal close
             document.querySelectorAll('[data-close]').forEach(btn => {
@@ -1724,13 +1725,14 @@ function toggleBulletin() {
             });
 
             onAuthStateChanged(this.auth, async user => {
+                if(this.accountEnded)return;
                 if (user) {
                     try {
                         const tokenResult = await user.getIdTokenResult(false);
                         const claimedEmail = tokenResult.claims.verifiedEmail;
                         const stored = localStorage.getItem('pta_verified_email');
 
-                        if (claimedEmail && stored && claimedEmail === stored) {
+                        if (claimedEmail && stored && claimedEmail === stored && tokenResult.claims.parentAccountVersion && tokenResult.claims.parentAccountKey) {
                             this.verifiedEmail = claimedEmail;
                             this.enterMainApp();
                         } else {
@@ -1834,9 +1836,10 @@ function toggleBulletin() {
         },
 
         async logout() {
+            if (!confirm('Sign out? You will need to verify your email again next time.')) return;
+            if(this.accountUnsub){this.accountUnsub();this.accountUnsub=null;}
             if(this.notificationUnsub)this.notificationUnsub();
             this.notifications=[];
-            if (!confirm('Sign out? You will need to verify your email again next time.')) return;
             if (this.bookingsUnsub) { this.bookingsUnsub(); this.bookingsUnsub = null; }
             if (this.slotSnapshotUnsubscribe) { this.slotSnapshotUnsubscribe(); this.slotSnapshotUnsubscribe = null; }
             localStorage.removeItem('pta_verified_email');
@@ -1853,6 +1856,19 @@ function toggleBulletin() {
         // ENTER MAIN APP
         // ════════════════════════════════════
         async enterMainApp() {
+            const token = await this.auth.currentUser.getIdTokenResult();
+            const key = token.claims.parentAccountKey, version = token.claims.parentAccountVersion;
+            if(!key || !version){this.showLoginGate();return;}
+            if(this.accountUnsub)this.accountUnsub();
+            this.accountUnsub = onSnapshot(doc(this.db, 'artifacts/ibsh-pta-v2/account_states', key), snap => {
+                if(!snap.exists() || snap.data().status !== 'active' || snap.data().version !== version){
+                    this.accountAccessEnded = true; this.isOpen = false;
+                    this.children=[];this.parents=[];this.myBookings=[];this.notifications=[];
+                    document.getElementById('main-content').style.display='none';
+                    document.querySelectorAll('.pta-modal-overlay').forEach(el=>el.classList.add('hidden'));
+                    if(!this.deletingAccount)this.endAccountSession('This account session has ended. Verify your email again to continue.');
+                }
+            }, () => { if(!this.accountEnded)this.endAccountSession('Account access could not be verified. Please sign in again.'); });
             document.getElementById('login-gate').classList.add('hidden');
             const dock = document.getElementById('floating-dock');
             dock.classList.remove('hidden');
@@ -1864,6 +1880,51 @@ function toggleBulletin() {
             this.checkSystemConfig();
         },
 
+        async openAccountProfile() {
+            try {
+                Swal.fire({title:'Checking account options…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
+                const state=await callGAS({action:'status'});
+                const allowed=state.ok && state.accountDeletionAllowed===true;
+                const reason=allowed?'Deleting this account removes the entire family profile and all bookings.':
+                    (state.accountDeletionReason||'Deletion is unavailable. Bookings must be Paused AND the registration deadline must have passed. Please retry later.');
+                const choice=await Swal.fire({title:'Your account',html:`<p style="overflow-wrap:anywhere">${escapeHtml(this.verifiedEmail)}</p><p class="text-sm mt-4">${escapeHtml(reason)}</p>`,showDenyButton:true,
+                    confirmButtonText:'Close',denyButtonText:'Delete account',customClass:{popup:'swal-saas'},
+                    didOpen:()=>{Swal.getDenyButton().disabled=!allowed;}});
+                if(!choice.isDenied||!allowed)return;
+                const token=await this.auth.currentUser.getIdTokenResult();
+                if(!token.claims.verifiedAt || Date.now()-token.claims.verifiedAt>5*60000){
+                    const permission=await Swal.fire({title:'Verify before deleting',text:'We will send a code to your account email. No data is deleted until you review and confirm.',showCancelButton:true,confirmButtonText:'Send verification code'});
+                    if(!permission.isConfirmed)return;
+                    const sent=await callGAS({action:'generateAndSendCode',email:this.verifiedEmail});if(!sent.ok)throw Error(sent.error);
+                    const verified=await Swal.fire({title:'Verify account email',text:'Enter the six-digit code sent to '+this.verifiedEmail,input:'text',inputAttributes:{inputmode:'numeric',maxlength:'6',autocomplete:'one-time-code'},showCancelButton:true,showLoaderOnConfirm:true,
+                        allowOutsideClick:()=>!Swal.isLoading(),preConfirm:async code=>{
+                            if(!/^\d{6}$/.test(code.trim())){Swal.showValidationMessage('Enter the six-digit code.');return false;}
+                            const r=await callGAS({action:'verifyCode',email:this.verifiedEmail,code:code.trim()});
+                            if(!r.ok){Swal.showValidationMessage(r.error);return false;}
+                            await this.auth.currentUser.getIdToken(true);return true;
+                        }});
+                    if(!verified.isConfirmed)return;
+                }
+                const result=await confirmAccountDeletion({email:this.verifiedEmail,request:mutateGAS,onDeleting:value=>{this.deletingAccount=value;}});
+                if(result?.dataDeleted)await this.endAccountSession(result.authCleanupPending?'Your family data and bookings have been removed. Sign-in cleanup is still processing; the account is disabled until it finishes.':'Your account and family data have been deleted. You may verify your email again to start with a new, empty profile.');
+            } catch(error) { await Swal.fire({title:'Account not deleted',text:error.message,icon:'warning'}); }
+            finally { if(this.accountAccessEnded&&!this.accountEnded)this.endAccountSession('Account access has ended. Please sign in again.'); }
+        },
+
+        async endAccountSession(message) {
+            if(this.accountEnded)return;this.accountEnded=true;this.isOpen=false;
+            ['accountUnsub','notificationUnsub','bookingsUnsub','slotSnapshotUnsubscribe'].forEach(key=>{if(this[key])this[key]();this[key]=null;});
+            const uid=this.auth.currentUser?.uid;
+            this.children=[];this.parents=[];this.myBookings=[];this.notifications=[];this.verifiedEmail=null;
+            localStorage.removeItem('pta_verified_email');
+            Object.keys(sessionStorage).filter(key=>uid&&key.startsWith('pta-operation-'+uid+'-')).forEach(key=>sessionStorage.removeItem(key));
+            document.querySelectorAll('.pta-modal-overlay').forEach(el=>el.classList.add('hidden'));
+            ['children-list','parents-list','bookings-list-active','bookings-list-history'].forEach(id=>{const el=document.getElementById(id);if(el)el.replaceChildren();});
+            document.getElementById('main-content').style.display='none';document.getElementById('floating-dock').classList.add('hidden');
+            try{await signOut(this.auth);}catch(ignored){}
+            await Swal.fire({title:'Account access ended',text:message,icon:'info',allowOutsideClick:false});location.reload();
+        },
+
         // ════════════════════════════════════
         // PROFILE / CHILDREN
         // ════════════════════════════════════
@@ -1871,6 +1932,7 @@ function toggleBulletin() {
             try {
                 const ref = doc(this.db, this.paths.profiles, this.verifiedEmail);
                 const snap = await getDoc(ref);
+                if(this.accountEnded||this.accountAccessEnded)return;
                 if (snap.exists()) {
                     const d = snap.data();
                     this.children = d.children || [];
@@ -2220,6 +2282,7 @@ function toggleBulletin() {
                 const c = snap.data();
                 if (c.gasUrl) window._GAS_URL = c.gasUrl;
                 const state = await callGAS({action:'status'});
+                if(this.accountEnded||this.accountAccessEnded)return;
                 if (!state.ok) throw new Error(state.error);
                 this.currentEventId = state.eventId;
                 this.serverOffset = state.serverNow - Date.now();
@@ -2374,7 +2437,7 @@ function toggleBulletin() {
         },
 
 
-        revealPage() { document.getElementById('loading-overlay').classList.add('hidden'); document.getElementById('main-content').style.display=''; },
+        revealPage() { if(this.accountEnded||this.accountAccessEnded)return;document.getElementById('loading-overlay').classList.add('hidden'); document.getElementById('main-content').style.display=''; },
 
 
         showEmpty(title='Schedule Closed', msg='Please check back later.') {
