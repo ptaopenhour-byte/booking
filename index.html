@@ -1512,7 +1512,15 @@ function toggleBulletin() {
     }
 
 
-    async function callGAS(payload) {
+    const gasInFlight = new Map();
+    function callGAS(payload) {
+        if (['status','previewAccountDeletion'].includes(payload.action) && app.currentEventId) payload={...payload,eventId:app.currentEventId};
+        const key=JSON.stringify([app.auth?.currentUser?.uid,payload]);
+        if(gasInFlight.has(key))return gasInFlight.get(key);
+        const pending=fetchGAS(payload).finally(()=>gasInFlight.delete(key));
+        gasInFlight.set(key,pending);return pending;
+    }
+    async function fetchGAS(payload) {
         try {
             // Resolve the deployed endpoint before OTP as well as after login.
             // Missing configuration must never silently use a legacy backend.
@@ -1539,7 +1547,7 @@ function toggleBulletin() {
         sessionStorage.setItem(key, requestId);
         const result = await callGAS({...payload, requestId});
         if (!result.uncertain) sessionStorage.removeItem(key);
-        if (!result.ok) throw new Error(result.error || 'Request failed');
+        if (!result.ok) { const error=new Error(result.error || 'Request failed');error.code=result.code;throw error; }
         return result;
     }
     const APP_TIMEZONE = 'Asia/Taipei';
@@ -1778,6 +1786,7 @@ function toggleBulletin() {
             const emailInput = document.getElementById('gate-email-input');
             const errorEl = document.getElementById('gate-email-error');
             const btn = document.getElementById('gate-send-btn');
+            if(btn.disabled)return;
             const email = normalizeEmail(emailInput.value);
 
             errorEl.innerText = '';
@@ -1802,6 +1811,7 @@ function toggleBulletin() {
         async gateVerifyCode() {
             const errorEl = document.getElementById('gate-code-error');
             const btn = document.getElementById('gate-verify-btn');
+            if(btn.disabled)return;
             const code = document.getElementById('gate-code-input').value.trim();
             const email = this._gatePendingEmail;
 
@@ -1821,13 +1831,19 @@ function toggleBulletin() {
 
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading session...';
             let claimReady = false;
-            for (let i = 0; i < 3; i++) {
-                await new Promise(r => setTimeout(r, 1000));
-                const tokenResult = await this.auth.currentUser.getIdTokenResult(true);
-                if (tokenResult.claims.verifiedEmail === email) { claimReady = true; break; }
+            try {
+                for (let i = 0; i < 3; i++) {
+                    if(i>0)await new Promise(r => setTimeout(r, 500*i));
+                    const tokenResult = await this.auth.currentUser.getIdTokenResult(true);
+                    if (tokenResult.claims.verifiedEmail === email && tokenResult.claims.parentAccountKey && tokenResult.claims.parentAccountVersion) { claimReady = true; break; }
+                }
+            } catch(error) {
+                errorEl.innerText = 'Unable to refresh your session. Check your connection and retry verification.';
+                return;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enter';
             }
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enter';
             if (!claimReady) { errorEl.innerText = 'Verification claim not ready. Please try again.'; return; }
 
             this.verifiedEmail = email;
@@ -1881,6 +1897,7 @@ function toggleBulletin() {
         },
 
         async openAccountProfile() {
+            if(this.accountProfileBusy)return;this.accountProfileBusy=true;
             try {
                 Swal.fire({title:'Checking account options…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
                 const state=await callGAS({action:'status'});
@@ -1908,7 +1925,7 @@ function toggleBulletin() {
                 const result=await confirmAccountDeletion({email:this.verifiedEmail,request:mutateGAS,onDeleting:value=>{this.deletingAccount=value;}});
                 if(result?.dataDeleted)await this.endAccountSession(result.authCleanupPending?'Your family data and bookings have been removed. Sign-in cleanup is still processing; the account is disabled until it finishes.':'Your account and family data have been deleted. You may verify your email again to start with a new, empty profile.');
             } catch(error) { await Swal.fire({title:'Account not deleted',text:error.message,icon:'warning'}); }
-            finally { if(this.accountAccessEnded&&!this.accountEnded)this.endAccountSession('Account access has ended. Please sign in again.'); }
+            finally { this.accountProfileBusy=false;if(this.accountAccessEnded&&!this.accountEnded)this.endAccountSession('Account access has ended. Please sign in again.'); }
         },
 
         async endAccountSession(message) {
@@ -2281,6 +2298,7 @@ function toggleBulletin() {
                 if (!snap.exists() || snap.data().apiVersion !== 3) throw new Error('Booking setup is being updated. Please retry later.');
                 const c = snap.data();
                 if (c.gasUrl) window._GAS_URL = c.gasUrl;
+                this.currentEventId = c.eventId;
                 const state = await callGAS({action:'status'});
                 if(this.accountEnded||this.accountAccessEnded)return;
                 if (!state.ok) throw new Error(state.error);
