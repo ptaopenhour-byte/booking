@@ -1460,6 +1460,7 @@ function toggleBulletin() {
 <script type="module">
     import { mountBookingCalendar } from "./booking-calendar.mjs";
     import { confirmAccountDeletion } from "./account-deletion.mjs";
+    import { directFirestoreAPI } from "./firestore-booking.mjs";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
     // ✅ 加入 setDoc (要寫家長 children profile)
     import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, runTransaction, query, where, deleteDoc, updateDoc, addDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
@@ -1512,13 +1513,16 @@ function toggleBulletin() {
     }
 
 
-    const gasInFlight = new Map();
-    function callGAS(payload) {
+    const apiInFlight = new Map();
+    function callBackend(payload) {
         if (['status','previewAccountDeletion'].includes(payload.action) && app.currentEventId) payload={...payload,eventId:app.currentEventId};
         const key=JSON.stringify([app.auth?.currentUser?.uid,payload]);
-        if(gasInFlight.has(key))return gasInFlight.get(key);
-        const pending=fetchGAS(payload).finally(()=>gasInFlight.delete(key));
-        gasInFlight.set(key,pending);return pending;
+        if(apiInFlight.has(key))return apiInFlight.get(key);
+        const request=['book','cancel','status'].includes(payload.action)
+            ? (app.directAPI ||= directFirestoreAPI(app.db,app.auth)).then(api=>api(payload))
+            : fetchGAS(payload);
+        const pending=request.finally(()=>apiInFlight.delete(key));
+        apiInFlight.set(key,pending);return pending;
     }
     async function fetchGAS(payload) {
         try {
@@ -1540,12 +1544,12 @@ function toggleBulletin() {
             return result;
         } catch(e) { return {ok:false, uncertain:true, error:'Connection interrupted. Check My Bookings, then retry the same operation.'}; }
     }
-    async function mutateGAS(payload) {
+    async function mutateBackend(payload) {
         const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload))))).map(n=>n.toString(16).padStart(2,'0')).join('');
         const key = 'pta-operation-' + app.auth.currentUser.uid + '-' + digest;
         const requestId = sessionStorage.getItem(key) || crypto.randomUUID();
         sessionStorage.setItem(key, requestId);
-        const result = await callGAS({...payload, requestId});
+        const result = await callBackend({...payload, requestId});
         if (!result.uncertain) sessionStorage.removeItem(key);
         if (!result.ok) { const error=new Error(result.error || 'Request failed');error.code=result.code;throw error; }
         return result;
@@ -1667,7 +1671,7 @@ function toggleBulletin() {
         },
         data: { teachers: [] },
         currentView: 'subject', currentSubject: null, currentTeacher: null,
-        lastBookingTime: 0, isOpen: false, countdownTimer: null, slotSnapshotUnsubscribe: null,
+        bookingBusy: false, isOpen: false, countdownTimer: null, slotSnapshotUnsubscribe: null,
 
         // ─── 新會話狀態 ───
         verifiedEmail: null,
@@ -1796,7 +1800,7 @@ function toggleBulletin() {
             }
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-            const gr = await callGAS({ action: 'generateAndSendCode', email });
+            const gr = await callBackend({ action: 'generateAndSendCode', email });
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Code';
             if (!gr.ok) {
@@ -1821,7 +1825,7 @@ function toggleBulletin() {
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
-            const vr = await callGAS({ action: 'verifyCode', email, code });
+            const vr = await callBackend({ action: 'verifyCode', email, code });
             if (!vr.ok) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check"></i> Verify & Enter';
@@ -1899,8 +1903,8 @@ function toggleBulletin() {
         async openAccountProfile() {
             if(this.accountProfileBusy)return;this.accountProfileBusy=true;
             try {
-                Swal.fire({title:'Checking account options…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
-                const state=await callGAS({action:'status'});
+                Swal.fire({title:'Checking account options…',allowOutsideClick:false,didOpen:popup=>{if(Swal.getPopup()===popup&&Swal.getTitle()?.textContent==='Checking account options…')Swal.showLoading();}});
+                const state=await callBackend({action:'status'});
                 const allowed=state.ok && state.accountDeletionAllowed===true;
                 const reason=allowed?'Deleting this account removes the entire family profile and all bookings.':
                     (state.accountDeletionReason||'Deletion is unavailable. Bookings must be Paused AND the registration deadline must have passed. Please retry later.');
@@ -1912,17 +1916,17 @@ function toggleBulletin() {
                 if(!token.claims.verifiedAt || Date.now()-token.claims.verifiedAt>5*60000){
                     const permission=await Swal.fire({title:'Verify before deleting',text:'We will send a code to your account email. No data is deleted until you review and confirm.',showCancelButton:true,confirmButtonText:'Send verification code'});
                     if(!permission.isConfirmed)return;
-                    const sent=await callGAS({action:'generateAndSendCode',email:this.verifiedEmail});if(!sent.ok)throw Error(sent.error);
+                    const sent=await callBackend({action:'generateAndSendCode',email:this.verifiedEmail});if(!sent.ok)throw Error(sent.error);
                     const verified=await Swal.fire({title:'Verify account email',text:'Enter the six-digit code sent to '+this.verifiedEmail,input:'text',inputAttributes:{inputmode:'numeric',maxlength:'6',autocomplete:'one-time-code'},showCancelButton:true,showLoaderOnConfirm:true,
                         allowOutsideClick:()=>!Swal.isLoading(),preConfirm:async code=>{
                             if(!/^\d{6}$/.test(code.trim())){Swal.showValidationMessage('Enter the six-digit code.');return false;}
-                            const r=await callGAS({action:'verifyCode',email:this.verifiedEmail,code:code.trim()});
+                            const r=await callBackend({action:'verifyCode',email:this.verifiedEmail,code:code.trim()});
                             if(!r.ok){Swal.showValidationMessage(r.error);return false;}
                             await this.auth.currentUser.getIdToken(true);return true;
                         }});
                     if(!verified.isConfirmed)return;
                 }
-                const result=await confirmAccountDeletion({email:this.verifiedEmail,request:mutateGAS,onDeleting:value=>{this.deletingAccount=value;}});
+                const result=await confirmAccountDeletion({email:this.verifiedEmail,request:mutateBackend,onDeleting:value=>{this.deletingAccount=value;}});
                 if(result?.dataDeleted)await this.endAccountSession(result.authCleanupPending?'Your family data and bookings have been removed. Sign-in cleanup is still processing; the account is disabled until it finishes.':'Your account and family data have been deleted. You may verify your email again to start with a new, empty profile.');
             } catch(error) { await Swal.fire({title:'Account not deleted',text:error.message,icon:'warning'}); }
             finally { this.accountProfileBusy=false;if(this.accountAccessEnded&&!this.accountEnded)this.endAccountSession('Account access has ended. Please sign in again.'); }
@@ -2274,7 +2278,7 @@ function toggleBulletin() {
                 (this.notificationsUnavailable?'Status unavailable. Please refresh.':notices.length?notices.map(n=>`<div style="padding:10px 0;font-size:13px"><strong>${escapeHtml(n.kind)}</strong> · ${escapeHtml(n.payload?.teacherName||'')}<br>${escapeHtml(labels[n.status]||n.status)}<br><small>Ref: ${escapeHtml(n.id.slice(0,12))}</small>${n.status==='deferred'?` <button data-retry-notice="${escapeHtml(n.id)}">Retry</button>`:''}</div>`).join(''):'No notifications requested.')+'</section>';
             a.querySelectorAll('[data-retry-notice]').forEach(btn=>btn.addEventListener('click',async()=>{
                 btn.disabled=true;
-                const result=await callGAS({action:'retryNotification',notificationId:btn.dataset.retryNotice});
+                const result=await callBackend({action:'retryNotification',notificationId:btn.dataset.retryNotice});
                 if(!result.ok)alert(result.error);
                 btn.disabled=false;
             }));
@@ -2286,7 +2290,7 @@ function toggleBulletin() {
             const b = this.myBookings.find(x => x.id === bookingId);
             if (!b || !confirm(`Cancel your booking with ${b.teacherName} at ${b.slotTime}?`)) return;
             try {
-                await mutateGAS({action:'cancel', bookingId});
+                await mutateBackend({action:'cancel', bookingId});
                 Swal.fire({title:'Booking cancelled', text:'The slot has been released. Cancellation notifications are queued, not yet confirmed sent.', icon:'success'});
             } catch(e) { Swal.fire({title:'Cancellation not confirmed', text:e.message, icon:'error'}); }
         },
@@ -2299,7 +2303,7 @@ function toggleBulletin() {
                 const c = snap.data();
                 if (c.gasUrl) window._GAS_URL = c.gasUrl;
                 this.currentEventId = c.eventId;
-                const state = await callGAS({action:'status'});
+                const state = await callBackend({action:'status'});
                 if(this.accountEnded||this.accountAccessEnded)return;
                 if (!state.ok) throw new Error(state.error);
                 this.currentEventId = state.eventId;
@@ -2666,9 +2670,11 @@ function toggleBulletin() {
 
 
         async book(tid, slotId, timeLabel, dateLabel) {
-            if (Date.now() - this.lastBookingTime < 3000) return Swal.fire({icon:'warning',title:'Too Fast!',text:'Please wait a few seconds.',customClass:{popup:'swal-saas'}});
+            if(this.bookingBusy)return;
             if (!this.isOpen) return Swal.fire({icon:'error',title:'Booking Closed',text:'The booking window is closed.',customClass:{popup:'swal-saas'}});
             if (!this.verifiedEmail) return Swal.fire({icon:'error',title:'Not Signed In',text:'Please sign in first.',customClass:{popup:'swal-saas'}});
+            this.bookingBusy=true;
+            try {
 
             // 必須先有孩子檔案
             if (!this.children.length) {
@@ -2685,7 +2691,6 @@ function toggleBulletin() {
                 return;
             }
 
-            this.lastBookingTime = Date.now();
             const t = this.data.teachers.find(x => x.id === tid); if (!t) return;
             const dd = (dateLabel && dateLabel !== 'General') ? `on ${escapeHtml(dateLabel)}` : '';
 
@@ -2761,14 +2766,17 @@ function toggleBulletin() {
                     const parentObj = this.parents.find(p => p.id === parentId);
                     if (!child) return Swal.showValidationMessage('Selected child not found.');
                     if (!parentObj) return Swal.showValidationMessage('Selected parent not found.');
+                    const existing=this.myBookings.filter(b=>b.eventId===this.currentEventId&&b.childId===childId);
+                    if(existing.some(b=>b.teacherId===tid))return Swal.showValidationMessage('This child already has a booking with this teacher for this activity.');
+                    if(new Set(existing.map(b=>b.teacherId)).size>=10)return Swal.showValidationMessage('This child has reached the 10-teacher limit for this activity.');
                     return { childId, child, parentId, parentObj, message: m, sendReminder };
                 }
             });
 
             if (!isConfirmed || !form) return;
-            Swal.fire({title:'Reserving...', didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
+            Swal.fire({title:'Reserving...',didOpen:popup=>{if(Swal.getPopup()===popup&&Swal.getTitle()?.textContent==='Reserving...')Swal.showLoading();},allowOutsideClick:false});
             try {
-                const result = await mutateGAS({action:'book', eventId:this.currentEventId,
+                const result = await mutateBackend({action:'book', eventId:this.currentEventId,
                     teacherId:tid, slotId, childId:form.childId, parentId:form.parentId,
                     message:form.message, sendReminder:form.sendReminder});
                 Swal.fire({title:'Booking confirmed', icon:'success',
@@ -2777,6 +2785,7 @@ function toggleBulletin() {
             } catch(e) {
                 Swal.fire({title:'Booking not confirmed', text:e.message, icon:'error', customClass:{popup:'swal-saas'}});
             }
+            }finally{this.bookingBusy=false;}
         },
 
         // ✅ showManageFlow / showBookingsForEmail / cancelByParent 已被 Floating Dock + Bookings Drawer 取代
